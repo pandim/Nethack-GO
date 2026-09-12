@@ -254,8 +254,15 @@ func (g *Game) saveGame() {
 		return
 	}
 
-	if err := os.WriteFile(saveFile, file, 0644); err != nil {
+	tempSaveFile := saveFile + ".tmp"
+	if err := os.WriteFile(tempSaveFile, file, 0644); err != nil {
 		g.logAndSync("ERROR: Не удалось записать сохранение: %v", err)
+		g.addMessage("Не удалось сохранить игру!")
+		return
+	}
+	if err := os.Rename(tempSaveFile, saveFile); err != nil {
+		_ = os.Remove(tempSaveFile)
+		g.logAndSync("ERROR: Не удалось заменить сохранение: %v", err)
 		g.addMessage("Не удалось сохранить игру!")
 		return
 	}
@@ -306,6 +313,7 @@ func (g *Game) nextLevel() {
 	g.addMessage(fmt.Sprintf("Вы спустились на уровень %d.", g.depth))
 	g.saveGame() // автосохранение при переходе между уровнями
 }
+
 // nextSecretLevel — перепрыгивает через один уровень (глубина + 2)
 func (g *Game) nextSecretLevel() {
 	g.depth += 2
@@ -324,7 +332,9 @@ func (g *Game) nextSecretLevel() {
 		g.player.X = x
 		g.player.Y = y
 	}
+	g.saveGame()
 }
+
 // prevLevel — подъём на предыдущий уровень (клавиша <)
 //
 // 🆕 ЭТАП 2: Если уровень уже был посещён, монстры и объекты возрождаются.

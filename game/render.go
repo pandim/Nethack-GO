@@ -207,18 +207,18 @@ func (g *Game) renderDeathScreen() {
 		g.drawString(boxX, boxY+i, "║"+repeat(" ", boxWidth-2)+"║", boxStyle)
 	}
 	g.drawString(boxX, boxY+boxHeight-1, "╚"+repeat("═", boxWidth-2)+"╝", boxStyle)
-	
+
 	g.drawRawString(boxX+(boxWidth-stringWidth("ВЫ ПОГИБЛИ!"))/2, boxY+2, "ВЫ ПОГИБЛИ!", titleStyle)
-	
+
 	reason := g.deathReason
 	if reason == "" {
 		reason = "Погиб в подземелье"
 	}
 	g.drawRawString(boxX+(boxWidth-stringWidth(reason))/2, boxY+3, reason, style)
-	
+
 	scoreMsg := fmt.Sprintf("Глубина: %d | Золото: %d | Уровень: %d", g.depth, g.player.Gold, g.player.Level)
 	g.drawRawString(boxX+(boxWidth-stringWidth(scoreMsg))/2, boxY+5, scoreMsg, style)
-	
+
 	prompt := `Вы хотите выйти "Y" или начать игру заново "N"?`
 	g.drawRawString(boxX+(boxWidth-stringWidth(prompt))/2, boxY+7, prompt, style)
 	g.screen.Show()
@@ -317,7 +317,15 @@ func (g *Game) renderMessages() {
 	}
 	startY := screenHeight - messageHeight - 1
 	style := tcell.StyleDefault.Foreground(tcell.ColorWhite)
-	for i, msg := range g.messages {
+	start := len(g.messages) - messageHeight - g.messageScroll
+	if start < 0 {
+		start = 0
+	}
+	end := start + messageHeight
+	if end > len(g.messages) {
+		end = len(g.messages)
+	}
+	for i, msg := range g.messages[start:end] {
 		if i >= messageHeight {
 			break
 		}
@@ -327,9 +335,10 @@ func (g *Game) renderMessages() {
 
 func (g *Game) addMessage(msg string) {
 	g.messages = append(g.messages, msg)
-	if len(g.messages) > messageHeight {
-		g.messages = g.messages[1:]
+	if len(g.messages) > maxMessages {
+		g.messages = g.messages[len(g.messages)-maxMessages:]
 	}
+	g.messageScroll = 0
 }
 
 func (g *Game) renderBossHealthBar() {
@@ -398,27 +407,28 @@ func (g *Game) renderHelpScreen() {
 		lines := []struct{ key, desc string }{
 			{"WASD / Стрелки", "Движение"}, {"Q E Z C", "Диагонали"}, {"S / Пробел", "Ждать ход"},
 			{"I", "Инвентарь"}, {"1-9", "Использовать"}, {"Shift+S", "Сохранить"},
-			{">", "Лестница вниз"}, {"<", "Лестница вверх"}, {"T", "Торговля"},
-			{"P", "Алтарь"}, {"O", "Сундук"}, {"M", "Музыка"}, {"+ / -", "Громкость"},
-			{"?", "Помощь"}, {"ESC", "Выход"}, {"N", "Новая игра"},
+			{">, <", "Лестница вниз / вверх"}, {"T, P, O", "Торговля, Алтарь, Сундук"},
+			{"M, +/- или =/-", "Музыка, Громкость"},
+			{"PgUp/PgDn или [/]", "Журнал сообщений"}, {"Home/End или 0/9", "Начало/конец журнала"},
+			{"?", "Помощь"}, {"ESC", "Выход"}, {"N", "Новая игра (в игре)"},
 		}
 		y := 4
 		for _, line := range lines {
 			g.drawString(5, y, line.key, keyStyle)
-			g.drawString(22, y, "- "+line.desc, style)
+			g.drawString(25, y, "- "+line.desc, style)
 			y++
 		}
 	} else if g.helpPage == helpPageSymbols {
 		g.drawCentered(2, "=== СИМВОЛЫ ===", titleStyle)
 		symbols := []struct{ sym, desc string }{
-			{"@", "Вы"}, {">", "Лестница вниз"}, {"<", "Лестница вверх"}, {"±", "Совмещённая лестница"},
-			{"g o s r", "Монстры"}, {"! / [ $ %", "Предметы"}, {"~", "Свитки"}, {"k", "Ключ"},
-			{"M", "Торговец"}, {"_", "Алтарь"}, {"&", "Сундук"}, {"G N D B K", "Боссы"},
+			{"@", "Вы"}, {">", "Лестница вниз"}, {"<", "Лестница вверх"}, {"±", "Совмещённая лестница"}, 
+			{"≈", "Секретная лестница"},{"g o s r", "Монстры"}, {"! / [ $ %", "Зелье, Меч, Щит, Золото, Еда"}, {"~", "Свитки"}, 
+			{"k", "Ключ"},{"M", "Торговец"}, {"_", "Алтарь"}, {"&", "Сундук"}, {"G N D B K", "Боссы"},
 		}
 		y := 4
 		for _, s := range symbols {
 			g.drawString(5, y, s.sym, keyStyle)
-			g.drawString(22, y, "- "+s.desc, style)
+			g.drawString(25, y, "- "+s.desc, style)
 			y++
 		}
 	} else if g.helpPage == helpPageMechanics {
@@ -443,9 +453,9 @@ func (g *Game) renderHelpScreen() {
 			y++
 		}
 	}
-	g.drawCentered(screenHeight-4, fmt.Sprintf("Страница %d/%d", g.helpPage+1, helpPageCount), titleStyle)
-	g.drawCentered(screenHeight-3, "← → или A/D — перелистывание", style)
-	g.drawCentered(screenHeight-2, "Любая другая клавиша — возврат в игру", style)
+	g.drawCentered(screenHeight-3, fmt.Sprintf("Страница %d/%d;  ←", g.helpPage+1, helpPageCount), titleStyle)
+	g.drawCentered(screenHeight-2, "← → или A/D — перелистывание", style)
+	g.drawCentered(screenHeight-1, "Любая другая клавиша — возврат в игру", style)
 	g.screen.Show()
 }
 
@@ -482,7 +492,7 @@ func (g *Game) renderVictoryScreen() {
 		return
 	}
 	g.screen.Clear()
-	
+
 	titleStyle := tcell.StyleDefault.Foreground(tcell.ColorYellow).Background(tcell.ColorBlack)
 	style := tcell.StyleDefault.Foreground(tcell.ColorWhite).Background(tcell.ColorBlack)
 	goldStyle := tcell.StyleDefault.Foreground(tcell.ColorYellow).Background(tcell.ColorBlack)

@@ -68,6 +68,9 @@ func (g *Game) handleInput() {
 		if g.popupMessage != "" {
 			g.popupMessage = ""
 		}
+		if !g.showInventory && g.handleMessageScroll(ev) {
+			return
+		}
 		isEscape := ev.Key() == tcell.KeyEscape || ev.Rune() == 27
 		isQuit := ev.Key() == tcell.KeyCtrlC || ev.Key() == tcell.KeyCtrlQ
 		if isEscape || isQuit {
@@ -87,6 +90,52 @@ func (g *Game) handleInput() {
 	case *tcell.EventResize:
 		g.screen.Sync()
 	}
+}
+
+func (g *Game) handleMessageScroll(ev *tcell.EventKey) bool {
+	if ev == nil || len(g.messages) <= messageHeight {
+		return false
+	}
+	maxScroll := len(g.messages) - messageHeight
+	scrollBy := messageHeight
+	switch ev.Key() {
+	case tcell.KeyPgUp:
+		return g.scrollMessages(scrollBy, maxScroll)
+	case tcell.KeyPgDn:
+		return g.scrollMessages(-scrollBy, maxScroll)
+	case tcell.KeyHome:
+		g.messageScroll = maxScroll
+		return true
+	case tcell.KeyEnd:
+		g.messageScroll = 0
+		return true
+	}
+
+	switch ev.Rune() {
+	case '[':
+		return g.scrollMessages(scrollBy, maxScroll)
+	case ']':
+		return g.scrollMessages(-scrollBy, maxScroll)
+	case '9':
+		g.messageScroll = maxScroll
+		return true
+	case '0':
+		g.messageScroll = 0
+		return true
+	default:
+		return false
+	}
+}
+
+func (g *Game) scrollMessages(delta, maxScroll int) bool {
+	g.messageScroll += delta
+	if g.messageScroll < 0 {
+		g.messageScroll = 0
+	}
+	if g.messageScroll > maxScroll {
+		g.messageScroll = maxScroll
+	}
+	return true
 }
 
 // ИСПРАВЛЕНО: убраны однострочные if-else, которые ломали компиляцию
@@ -374,7 +423,7 @@ func (g *Game) handleMovement(key rune, specialKey tcell.Key) {
 				g.addMessage("Это самое дно подземелья! Вернитесь на уровень 1 с Амулетом!")
 				return
 			}
-			
+
 			// 1. Сначала проверяем обычную лестницу
 			if g.level.StairsDown && g.player.X == g.level.StairsDownX && g.player.Y == g.level.StairsDownY {
 				if g.level.HasAliveBoss() {
@@ -384,15 +433,15 @@ func (g *Game) handleMovement(key rune, specialKey tcell.Key) {
 				g.nextLevel()
 				return
 			}
-			
+
 			// 2. Проверяем СЕКРЕТНУЮ лестницу
 			if g.level.SecretStairsTargetDepth > 0 && g.player.X == g.level.SecretStairsDownX && g.player.Y == g.level.SecretStairsDownY {
 				g.addMessage("Вы нашли секретный проход! Прыжок через уровень.")
-				g.nextSecretLevel() 
+				g.nextSecretLevel()
 				return
 			}
 			g.addMessage("Здесь нет лестницы вниз.")
-			return		
+			return
 		case '<':
 			if g.level.StairsUp && g.player.X == g.level.StairsUpX && g.player.Y == g.level.StairsUpY {
 				g.prevLevel()

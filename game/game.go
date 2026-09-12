@@ -18,6 +18,7 @@ const (
 	mapWidth      = 78
 	mapHeight     = 20
 	messageHeight = 3
+	maxMessages   = 500
 	saveFile      = "savegame.json"
 	logFile       = "nethack.log"
 	musicFile     = "music.mp3"
@@ -27,7 +28,7 @@ const (
 type GameState int
 
 const (
-	StatePlaying     GameState = iota
+	StatePlaying GameState = iota
 	StateStartMenu
 	StateQuitConfirm
 	StateDeathMenu
@@ -51,6 +52,7 @@ type Game struct {
 	levels        map[int]*Level
 	depth         int
 	messages      []string
+	messageScroll int
 	quit          bool
 	showInventory bool
 	helpPage      int
@@ -113,8 +115,12 @@ func NewGame() *Game {
 }
 
 func (g *Game) logAndSync(format string, v ...interface{}) {
-	if g.logger != nil { g.logger.Printf(format, v...) }
-	if g.logFileHandle != nil { g.logFileHandle.Sync() }
+	if g.logger != nil {
+		g.logger.Printf(format, v...)
+	}
+	if g.logFileHandle != nil {
+		g.logFileHandle.Sync()
+	}
 }
 
 func (g *Game) startBlinkTicker() func() {
@@ -128,7 +134,9 @@ func (g *Game) startBlinkTicker() func() {
 		for {
 			select {
 			case <-ticker.C:
-				if g.screen != nil { _ = g.screen.PostEvent(&blinkEvent{when: time.Now()}) }
+				if g.screen != nil {
+					_ = g.screen.PostEvent(&blinkEvent{when: time.Now()})
+				}
 			case <-stopCh:
 				return
 			}
@@ -141,11 +149,17 @@ func (g *Game) startBlinkTicker() func() {
 }
 
 func (g *Game) Run() error {
-	if g.logFileHandle != nil { defer g.logFileHandle.Close() }
+	if g.logFileHandle != nil {
+		defer g.logFileHandle.Close()
+	}
 	var err error
 	g.screen, err = tcell.NewScreen()
-	if err != nil { return fmt.Errorf("не удалось создать экран: %w", err) }
-	if err := g.screen.Init(); err != nil { return fmt.Errorf("не удалось инициализировать экран: %w", err) }
+	if err != nil {
+		return fmt.Errorf("не удалось создать экран: %w", err)
+	}
+	if err := g.screen.Init(); err != nil {
+		return fmt.Errorf("не удалось инициализировать экран: %w", err)
+	}
 	defer g.screen.Fini()
 
 	g.initMusic()

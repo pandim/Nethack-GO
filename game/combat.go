@@ -19,14 +19,23 @@ func (g *Game) addToInventoryWithStack(item *Item) {
 	if item.IsStackable() {
 		for _, inv := range g.player.Inventory {
 			if inv != nil && inv.Name == item.Name && inv.Type == item.Type {
-				inv.Count++
+				// ✅ ИСПРАВЛЕНИЕ 1: Добавляем ВЕСЬ подобранный объем (item.Count), а не +1
+				inv.Count += item.Count
 				g.logAndSync("ITEM_STACK: %s добавлен в стопку (всего: %d)", item.Name, inv.Count)
 				return
 			}
 		}
 	}
-	item.Count = 1
+	
+	// ✅ ИСПРАВЛЕНИЕ 1: Удалена строка `item.Count = 1`, которая сбрасывала количество.
+	// Теперь предмет добавляется в инвентарь с его исходным количеством (например, 3 зелья).
 	g.player.Inventory = append(g.player.Inventory, item)
+	
+	if item.Count > 1 {
+		g.logAndSync("ITEM_ADD_STACK: %s (x%d) добавлен в инвентарь", item.Name, item.Count)
+	} else {
+		g.logAndSync("ITEM_ADD: %s добавлен в инвентарь", item.Name)
+	}
 }
 
 // =============================================================================
@@ -156,9 +165,18 @@ func (g *Game) processTurn(dx, dy int) {
 // ОСОБЫЕ СВОЙСТВА БОССОВ
 // =============================================================================
 func (g *Game) processBossAbilities(boss *Monster) {
-	if boss == nil || boss.HP <= 0 || g.level == nil {
+	if boss == nil || boss.HP <= 0 || g.level == nil || g.player == nil {
 		return
 	}
+
+	// ✅ ИСПРАВЛЕНИЕ 2: Активируем способности босса ТОЛЬКО если он находится в бою 
+	// (игрок в соседней клетке). Это предотвращает бесконечную регенерацию босса, 
+	// пока игрок исследует другие части уровня или стоит далеко.
+	inCombat := g.monsterIsAdjacent(boss)
+	if !inCombat {
+		return
+	}
+
 	switch boss.BossAbility {
 	case BossAbilityRegen:
 		if boss.HP < boss.MaxHP {

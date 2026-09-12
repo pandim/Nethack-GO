@@ -2,7 +2,10 @@ package game
 
 import (
 	"fmt"
+	"math/rand/v2"
 	"os"
+	"path/filepath"
+	"strings"
 	"time"
 
 	"github.com/faiface/beep"
@@ -16,6 +19,107 @@ import (
 type linearVolume struct {
 	streamer beep.Streamer
 	volume   float64 // 0.0 (тишина) до 1.0 (полная громкость)
+}
+
+type musicPlaylist struct {
+	tracks     []string
+	current    beep.StreamSeekCloser
+	sampleRate beep.SampleRate
+	err        error
+	closed     bool
+}
+
+func (p *musicPlaylist) Stream(samples [][2]float64) (n int, ok bool) {
+	for len(samples) > 0 && !p.closed {
+		if p.current == nil && !p.openRandomTrack() {
+			return n, false
+		}
+
+		streamed, playing := p.current.Stream(samples)
+		n += streamed
+		samples = samples[streamed:]
+		if playing {
+			return n, true
+		}
+
+		p.current.Close()
+		p.current = nil
+	}
+
+	return n, !p.closed && n > 0
+}
+
+func (p *musicPlaylist) Err() error {
+	if p.err != nil {
+		return p.err
+	}
+	if p.current != nil {
+		return p.current.Err()
+	}
+	return nil
+}
+
+func (p *musicPlaylist) Close() error {
+	p.closed = true
+	if p.current != nil {
+		err := p.current.Close()
+		p.current = nil
+		return err
+	}
+	return nil
+}
+
+func (p *musicPlaylist) skipTrack() {
+	if p.current != nil {
+		p.current.Close()
+		p.current = nil
+	}
+	p.err = nil
+}
+
+func (p *musicPlaylist) openRandomTrack() bool {
+	for range p.tracks {
+		path := p.tracks[rand.IntN(len(p.tracks))]
+		file, err := os.Open(path)
+		if err != nil {
+			p.err = err
+			continue
+		}
+
+		streamer, format, err := mp3.Decode(file)
+		if err != nil {
+			file.Close()
+			p.err = err
+			continue
+		}
+
+		p.current = streamer
+		p.sampleRate = format.SampleRate
+		p.err = nil
+		return true
+	}
+	return false
+}
+
+func findMusicTracks() ([]string, error) {
+	for _, directory := range []string{"Music", "./Music", "../Music"} {
+		entries, err := os.ReadDir(directory)
+		if err != nil {
+			continue
+		}
+
+		tracks := make([]string, 0, len(entries))
+		for _, entry := range entries {
+			if !entry.IsDir() && strings.EqualFold(filepath.Ext(entry.Name()), ".mp3") {
+				tracks = append(tracks, filepath.Join(directory, entry.Name()))
+			}
+		}
+		if len(tracks) > 0 {
+			return tracks, nil
+		}
+	}
+
+	return nil, fmt.Errorf("в папке Music не найдено mp3-файлов")
 }
 
 func (v *linearVolume) Stream(samples [][2]float64) (n int, ok bool) {
@@ -35,7 +139,7 @@ func (v *linearVolume) Err() error {
 // УПРАВЛЕНИЕ МУЗЫКОЙ
 // =============================================================================
 
-// initMusic — инициализирует фоновую музыку с зацикливанием.
+// initMusic — инициализирует случайный плейлист фоновой музыки.
 func (g *Game) initMusic() {
 	// Останавливаем старую музыку (если играла)
 	g.stopMusic()
@@ -45,55 +149,31 @@ func (g *Game) initMusic() {
 		return
 	}
 
-	// Ищем файл в нескольких местах
-	candidates := []string{
-		musicFile,
-		"./" + musicFile,
-		"../" + musicFile,
-	}
-
-	var f *os.File
-	var err error
-	for _, path := range candidates {
-		f, err = os.Open(path)
-		if err == nil {
-			g.logAndSync("MUSIC: Открыт файл %s", path)
-			break
-		}
-	}
-
+	tracks, err := findMusicTracks()
 	if err != nil {
-		g.logAndSync("MUSIC: Файл %s не найден: %v", musicFile, err)
+		g.logAndSync("MUSIC: %v", err)
 		g.musicEnabled = false
 		return
 	}
 
-	// Декодируем MP3
-	streamer, format, err := mp3.Decode(f)
-	if err != nil {
-		f.Close()
-		g.logAndSync("MUSIC: Не удалось декодировать mp3: %v", err)
+	playlist := &musicPlaylist{tracks: tracks}
+	if !playlist.openRandomTrack() {
+		g.logAndSync("MUSIC: Не удалось открыть ни один mp3-файл: %v", playlist.Err())
 		g.musicEnabled = false
 		return
 	}
-
 	// Инициализируем звуковое устройство
-	err = speaker.Init(format.SampleRate, format.SampleRate.N(time.Second/10))
+	err = speaker.Init(playlist.sampleRate, playlist.sampleRate.N(time.Second/10))
 	if err != nil {
-		streamer.Close()
-		f.Close()
+		playlist.Close()
 		g.logAndSync("MUSIC: Ошибка инициализации speaker: %v", err)
 		g.musicEnabled = false
 		return
 	}
 
-	// 🆕 ИСПРАВЛЕНИЕ: Зацикливаем трек через beep.Loop(-1, streamer)
-	// -1 означает бесконечный цикл
-	loop := beep.Loop(-1, streamer)
-
 	// Оборачиваем в линейную обёртку громкости
 	g.musicVolume = &linearVolume{
-		streamer: loop,
+		streamer: playlist,
 		volume:   g.musicLevel,
 	}
 
@@ -107,10 +187,9 @@ func (g *Game) initMusic() {
 	speaker.Play(g.musicCtrl)
 
 	// Сохраняем ссылки для последующего закрытия
-	g.musicStreamer = streamer
-	g.musicFileH = f
+	g.musicStreamer = playlist
 
-	g.logAndSync("MUSIC: Запущена (rate=%d, volume=%.2f, looped)", format.SampleRate, g.musicLevel)
+	g.logAndSync("MUSIC: Запущена (rate=%d, volume=%.2f, tracks=%d)", playlist.sampleRate, g.musicLevel, len(tracks))
 }
 
 // stopMusic — полностью останавливает музыку и освобождает ресурсы.
@@ -120,11 +199,6 @@ func (g *Game) stopMusic() {
 	if g.musicStreamer != nil {
 		g.musicStreamer.Close()
 		g.musicStreamer = nil
-	}
-
-	if g.musicFileH != nil {
-		g.musicFileH.Close()
-		g.musicFileH = nil
 	}
 
 	g.musicVolume = nil
@@ -151,6 +225,24 @@ func (g *Game) toggleMusic() {
 	} else {
 		g.addMessage("Музыка включена.")
 	}
+}
+
+func (g *Game) nextMusicTrack() {
+	if !g.musicEnabled || g.musicCtrl == nil {
+		g.addMessage("Музыка недоступна.")
+		return
+	}
+
+	playlist, ok := g.musicStreamer.(*musicPlaylist)
+	if !ok {
+		g.addMessage("Музыка недоступна.")
+		return
+	}
+
+	speaker.Lock()
+	playlist.skipTrack()
+	speaker.Unlock()
+	g.addMessage("Включен следующий трек.")
 }
 
 // changeMusicVolume — меняет громкость музыки.

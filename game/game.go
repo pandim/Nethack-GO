@@ -21,7 +21,6 @@ const (
 	maxMessages   = 500
 	saveFile      = "savegame.json"
 	logFile       = "nethack.log"
-	musicFile     = "music.mp3"
 	saveVersion   = 4
 )
 
@@ -70,10 +69,9 @@ type Game struct {
 	wasInCriticalHP bool
 	wasTooFull      bool
 
-	musicStreamer beep.StreamSeekCloser
+	musicStreamer beep.StreamCloser
 	musicVolume   *linearVolume
 	musicCtrl     *beep.Ctrl
-	musicFileH    *os.File
 	musicEnabled  bool
 	musicLevel    float64
 }

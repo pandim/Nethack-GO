@@ -407,6 +407,9 @@ func (g *Game) handleMovement(key rune, specialKey tcell.Key) {
 		case 'm', 'M':
 			g.toggleMusic()
 			return
+		case 'r', 'R':
+			g.nextMusicTrack()
+			return
 		case '+', '=':
 			g.changeMusicVolume(0.1)
 			return
@@ -455,12 +458,6 @@ func (g *Game) handleMovement(key rune, specialKey tcell.Key) {
 			return
 		case 'S':
 			g.saveGame()
-			return
-		case 'n', 'N':
-			if _, err := os.Stat(saveFile); err == nil {
-				os.Remove(saveFile)
-			}
-			g.startNewGame()
 			return
 		case 't', 'T':
 			if merchant := g.level.GetMerchantAt(g.player.X, g.player.Y); merchant != nil {

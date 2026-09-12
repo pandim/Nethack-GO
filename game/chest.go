@@ -3,6 +3,7 @@ package game
 import (
 	"math/rand"
 	"time"
+
 	"github.com/gdamore/tcell/v2"
 )
 
@@ -28,6 +29,18 @@ type Chest struct {
 }
 
 // =============================================================================
+// 🆕 ГЕНЕРАЦИЯ СОДЕРЖИМОГО ОБЫЧНОГО СУНДУКА
+// =============================================================================
+//
+// newChestContents генерирует случайное содержимое для обычного сундука.
+// Возвращает строку: "potion", "food" или "monster".
+// Эта функция используется в NewChest и при возрождении уровней (save.go).
+func newChestContents() string {
+	contents := []string{"potion", "food", "monster"}
+	return contents[rand.Intn(len(contents))]
+}
+
+// =============================================================================
 // СОЗДАНИЕ ОБЫЧНОГО СУНДУКА
 // =============================================================================
 //
@@ -35,14 +48,12 @@ type Chest struct {
 // Содержимое определяется случайно: зелье, еда или монстр-ловушка.
 // Обычные сундуки открываются без ключа.
 func NewChest(x, y int) *Chest {
-	// Случайное содержимое
-	contents := []string{"potion", "food", "monster"}
 	return &Chest{
 		X:        x,
 		Y:        y,
 		Opened:   false,
-		Contents: contents[rand.Intn(len(contents))],
-		IsGolden: false, // обычный сундук
+		Contents: newChestContents(), // ✅ Используем новую функцию
+		IsGolden: false,             // обычный сундук
 	}
 }
 
@@ -78,7 +89,6 @@ func (c *Chest) Render(screen tcell.Screen, offsetX, offsetY int) {
 		return
 	}
 	var color tcell.Color
-	
 	if c.IsGolden {
 		if c.Opened {
 			color = tcell.ColorDarkGray // Открытый золотой — тусклый
@@ -98,7 +108,6 @@ func (c *Chest) Render(screen tcell.Screen, offsetX, offsetY int) {
 			color = tcell.ColorYellow
 		}
 	}
-	
 	style := tcell.StyleDefault.Foreground(color).Background(tcell.ColorBlack)
 	screen.SetContent(c.X+offsetX, c.Y+offsetY, '&', nil, style)
 }

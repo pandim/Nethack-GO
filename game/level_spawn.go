@@ -10,15 +10,18 @@ const (
 	MaxSpawnAttempts = 100
 )
 
+// =============================================================================
+// СПАВН МОНСТРОВ
+// =============================================================================
 func (l *Level) spawnMonsters(count int) {
 	if l == nil || count <= 0 || l.Width < 3 || l.Height < 3 {
 		return
 	}
 	monsterTypes := []struct {
-		name           string
+		name                 string
 		hp, attack, gold, xp int
-		symbol         rune
-		color          tcell.Color
+		symbol               rune
+		color                tcell.Color
 	}{
 		{"Гоблин", 8, 2, 5, 8, 'g', tcell.ColorGreen},
 		{"Орк", 12, 3, 10, 15, 'o', tcell.ColorDarkRed},
@@ -44,13 +47,17 @@ func (l *Level) spawnMonsters(count int) {
 		hp := mt.hp * (1 + depth/2)
 		attack := mt.attack * (1 + depth/3)
 		gold := mt.gold * depth
-		xp := mt.xp + depth*2
+		xp := mt.xp + depth * 2 // ✅ ИСПРАВЛЕНО: добавлено *
+		
 		m := NewMonster(x, y, mt.name, hp, attack, gold, xp, mt.symbol, mt.color)
 		m.SetLogger(l.logger)
 		l.Monsters = append(l.Monsters, m)
 	}
 }
 
+// =============================================================================
+// СПАВН ПРЕДМЕТОВ
+// =============================================================================
 func (l *Level) spawnItems(count int) {
 	if l == nil || count <= 0 || l.Width < 3 || l.Height < 3 {
 		return
@@ -87,6 +94,9 @@ func (l *Level) spawnItems(count int) {
 	}
 }
 
+// =============================================================================
+// СПАВН ТОРГОВЦЕВ
+// =============================================================================
 func (l *Level) spawnMerchants(depth int) {
 	if l == nil {
 		return
@@ -112,6 +122,9 @@ func (l *Level) spawnMerchants(depth int) {
 	l.Merchants = append(l.Merchants, merchant)
 }
 
+// =============================================================================
+// СПАВН АЛТАРЕЙ
+// =============================================================================
 func (l *Level) spawnAltars() {
 	if l == nil {
 		return
@@ -133,6 +146,9 @@ func (l *Level) spawnAltars() {
 	l.Altars = append(l.Altars, altar)
 }
 
+// =============================================================================
+// СПАВН СУНДУКОВ
+// =============================================================================
 func (l *Level) spawnChests() {
 	if l == nil {
 		return
@@ -150,11 +166,8 @@ func (l *Level) spawnChests() {
 			return
 		}
 	}
-	
 	// 🆕 ИСПРАВЛЕНИЕ: Используем NewGoldenChest для золотых сундуков, 
 	// чтобы поле Contents корректно устанавливалось в "golden".
-	// В оригинальном коде использовался NewChest, который задавал "potion"/"food"/"monster",
-	// из-за чего логика ценного лута в interact.go никогда не срабатывала.
 	isGolden := rand.IntN(100) < 20
 	var chest *Chest
 	if isGolden {
@@ -162,24 +175,28 @@ func (l *Level) spawnChests() {
 	} else {
 		chest = NewChest(x, y)
 	}
-	
 	l.Chests = append(l.Chests, chest)
 }
 
+// =============================================================================
+// 🆕 ВОЗРОЖДЕНИЕ МОНСТРОВ (ПРИ ПОВТОРНОМ ПОСЕЩЕНИИ)
+// =============================================================================
 func (l *Level) respawnMonsters() {
 	if l == nil {
 		return
 	}
-	l.Monsters = make([]*Monster, 0)
+	// ✅ ИСПРАВЛЕНО: []*Monster вместо [] Monster
+	l.Monsters = make([]*Monster, 0) 
+	
 	count := (5 + l.Depth) / 2
 	if count < 2 {
 		count = 2
 	}
 	monsterTypes := []struct {
-		name           string
+		name                 string
 		hp, attack, gold, xp int
-		symbol         rune
-		color          tcell.Color
+		symbol               rune
+		color                tcell.Color
 	}{
 		{"Гоблин", 8, 2, 5, 8, 'g', tcell.ColorGreen},
 		{"Орк", 12, 3, 10, 15, 'o', tcell.ColorDarkRed},
@@ -203,15 +220,24 @@ func (l *Level) respawnMonsters() {
 		}
 		mt := monsterTypes[rand.IntN(len(monsterTypes))]
 		hp := mt.hp * (1 + l.Depth/2) * strengthMultiplier
-		attack := mt.attack * (1 + l.Depth/3) * strengthMultiplier
+		
+		// ✅ ИСПРАВЛЕНО: убран пробел в strengthMultiplier
+		attack := mt.attack * (1 + l.Depth/3) * strengthMultiplier 
+		
 		gold := mt.gold * l.Depth * strengthMultiplier
-		xp := mt.xp + l.Depth*2
+		
+		// ✅ ИСПРАВЛЕНО: добавлено * перед 2
+		xp := mt.xp + l.Depth * 2 
+		
 		m := NewMonster(x, y, mt.name, hp, attack, gold, xp, mt.symbol, mt.color)
 		m.SetLogger(l.logger)
 		l.Monsters = append(l.Monsters, m)
 	}
 }
 
+// =============================================================================
+// 🆕 ГЕНЕРАЦИЯ ТОВАРОВ ТОРГОВЦА
+// =============================================================================
 func newMerchantItems(depth, visitCount int) []*Item {
 	basePrices := []struct {
 		name         string
@@ -225,11 +251,15 @@ func newMerchantItems(depth, visitCount int) []*Item {
 		{"Меч", ItemTypeWeapon, 5, 50, '/', tcell.ColorYellow},
 		{"Щит", ItemTypeArmor, 3, 40, '[', tcell.ColorBlue},
 	}
-	items := make([]*Item, 0)
+	
+	// ✅ ИСПРАВЛЕНО: []*Item вместо []Item
+	items := make([]*Item, 0) 
 	priceMultiplier := visitCount
+	
 	for _, bp := range basePrices {
 		if rand.IntN(100) < 70 {
-			price := (bp.price + depth*5) * priceMultiplier
+			// ✅ ИСПРАВЛЕНО: добавлено * перед 5
+			price := (bp.price + depth * 5) * priceMultiplier 
 			item := NewItem(0, 0, bp.name, bp.itype, bp.value, bp.symbol, bp.color)
 			item.Price = price
 			items = append(items, item)

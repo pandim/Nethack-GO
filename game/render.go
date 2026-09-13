@@ -151,6 +151,17 @@ func (g *Game) renderStartMenu() {
 	y++
 	g.drawCentered(y, "[M] Музыка вкл/выкл", style)
 	g.drawCentered(screenHeight-2, "[ESC] Выход", dimStyle)
+	
+		// ==========================================================
+	// 🆕 ДОБАВЛЕНИЕ: Отображение версии в правом нижнем углу
+	// ==========================================================
+	versionStyle := tcell.StyleDefault.Foreground(tcell.ColorDarkGray).Background(tcell.ColorBlack)
+	versionText := fmt.Sprintf("v%s", GameVersion)
+	// Вычисляем позицию: правый край экрана минус длина строки минус небольшой отступ
+	g.drawString(screenWidth-len(versionText)-2, screenHeight-1, versionText, versionStyle)
+	// ==========================================================
+
+	
 	g.screen.Show()
 }
 

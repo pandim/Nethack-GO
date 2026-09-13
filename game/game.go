@@ -26,7 +26,7 @@ const (
 
 // GameVersion хранит текущую версию игры.
 // Значение по умолчанию можно переопределить при сборке через -ldflags.
-var GameVersion = "0.3.0-dev"
+var GameVersion = "0.3.1-dev"
 
 type GameState int
 

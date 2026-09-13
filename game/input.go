@@ -244,7 +244,7 @@ func (g *Game) useItem(index int) {
 				g.addMessage("Вам не надо есть, вы можете лопнуть!")
 				return
 			}
-			g.player.Hunger -= g.player.Hunger / 2
+			g.player.Hunger -= 500
 			g.addMessage("Вы поели. Голод уменьшился.")
 		} else {
 			if g.player.MaxHP > 0 {

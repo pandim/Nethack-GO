@@ -44,10 +44,18 @@ func (l *Level) spawnMonsters(count int) {
 			}
 		}
 		mt := monsterTypes[rand.IntN(len(monsterTypes))]
+		
+		// 🆕 СБАЛАНСИРОВАННОЕ МАСШТАБИРОВАНИЕ
 		hp := mt.hp * (1 + depth/2)
 		attack := mt.attack * (1 + depth/3)
-		gold := mt.gold * depth
-		xp := mt.xp + depth*2 
+		
+		// Золото растет плавнее: на 1 этаже x1.5, на 5 этаже x3.5, на 10 этаже x6
+		// Это лучше соотносится с линейным ростом цен у торговцев
+		gold := mt.gold * (1 + depth/2)
+		
+		// Опыт растет линейно, гарантируя стабильный прогресс
+		xp := mt.xp + (depth * 2)
+		
 		m := NewMonster(x, y, mt.name, hp, attack, gold, xp, mt.symbol, mt.color)
 		m.SetLogger(l.logger)
 		l.Monsters = append(l.Monsters, m)
@@ -225,10 +233,15 @@ func (l *Level) respawnMonsters() {
 			}
 		}
 		mt := monsterTypes[rand.IntN(len(monsterTypes))]
+		
+		// 🆕 СБАЛАНСИРОВАННОЕ МАСШТАБИРОВАНИЕ С УЧЕТОМ VisitCount
 		hp := mt.hp * (1 + l.Depth/2) * strengthMultiplier
 		attack := mt.attack * (1 + l.Depth/3) * strengthMultiplier
-		gold := mt.gold * l.Depth * strengthMultiplier
-		xp := mt.xp + l.Depth*2
+		
+		// Золото также масштабируется от множителя посещений
+		gold := mt.gold * (1 + l.Depth/2) * strengthMultiplier
+		xp := mt.xp + (l.Depth * 2)
+		
 		m := NewMonster(x, y, mt.name, hp, attack, gold, xp, mt.symbol, mt.color)
 		m.SetLogger(l.logger)
 		l.Monsters = append(l.Monsters, m)

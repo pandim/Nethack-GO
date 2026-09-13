@@ -1,7 +1,7 @@
 package game
 
 import (
-	"math/rand"
+	"math/rand/v2"
 )
 
 // =============================================================================
@@ -13,7 +13,7 @@ func intInRange(minVal, maxVal int) int {
 	if maxVal < minVal {
 		return minVal
 	}
-	return minVal + rand.Intn(maxVal-minVal+1)
+	return minVal + rand.IntN(maxVal-minVal+1)
 }
 
 // minInt — возвращает меньшее из двух чисел.

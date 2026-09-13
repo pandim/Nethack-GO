@@ -1,7 +1,7 @@
 package game
 
 import (
-	"math/rand"
+	"math/rand/v2"
 )
 
 // =============================================================================
@@ -110,7 +110,7 @@ func (l *Level) createCorridor(r1, r2 Room) {
 	y2 := r2.Y + r2.H/2
 
 	// Случайно выбираем порядок сегментов (Г-образный коридор)
-	if rand.Intn(2) == 0 {
+	if rand.IntN(2) == 0 {
 		l.createHCorridor(x1, x2, y1)
 		l.createVCorridor(y1, y2, x2)
 	} else {

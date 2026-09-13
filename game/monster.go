@@ -3,6 +3,7 @@ package game
 import (
 	"log"
 	"time"
+	"math/rand/v2"
 
 	"github.com/gdamore/tcell/v2"
 )
@@ -228,6 +229,9 @@ func (m *Monster) Attack() int {
 //   - playerX, playerY: координаты игрока
 //   - level: текущий уровень (для проверки проходимости и видимости)
 //   - aggressive: 🆕 ЭТАП 3: увеличенный радиус зрения (когда игрок несёт Амулет)
+// =============================================================================
+// ИСКУССТВЕННЫЙ ИНТЕЛЛЕКТ МОНСТРА (С ОБХОДОМ ПРЕПЯТСТВИЙ)
+// =============================================================================
 func (m *Monster) AIUpdate(playerX, playerY int, level *Level, aggressive bool) {
 	if m == nil || level == nil {
 		return
@@ -237,76 +241,80 @@ func (m *Monster) AIUpdate(playerX, playerY int, level *Level, aggressive bool) 
 	distY := playerY - m.Y
 
 	// 🆕 ЭТАП 3: Выбираем радиус зрения в зависимости от агрессивности
-	// Когда игрок несёт Амулет Бездны, монстры видят дальше
-	// Константы MonsterVisionRangeSq и AggressiveVisionRangeSq определены выше
 	visionRangeSq := MonsterVisionRangeSq
 	if aggressive {
 		visionRangeSq = AggressiveVisionRangeSq
 	}
 
 	// Если игрок далеко, стоим на месте
-	// Используем выбранный радиус зрения вместо магического числа 36
 	if distX*distX+distY*distY > visionRangeSq {
 		return
 	}
 
 	// Проверка видимости: монстр реагирует только если видит игрока
-	// (не может видеть сквозь стены)
-	// Функция CanSee определена в level_fov.go
 	if !level.CanSee(m.X, m.Y, playerX, playerY) {
 		return
 	}
 
-	dx, dy := 0, 0
-
-	// Определяем направление движения по каждой оси:
-	// +1 (вправо/вниз), -1 (влево/вверх), 0 (не двигаться)
-	// Функция abs определена в combat.go
+	// Определяем предпочтительное направление (-1, 0 или 1)
+	dirX, dirY := 0, 0
 	if distX != 0 {
-		dx = distX / abs(distX) // нормализация к +1 или -1
+		dirX = distX / abs(distX)
 	}
 	if distY != 0 {
-		dy = distY / abs(distY) // нормализация к +1 или -1
+		dirY = distY / abs(distY)
 	}
 
-	// Пытаемся пойти по X
-	newX := m.X + dx
-	newY := m.Y
-
-	// БЛОКИРОВКА: Нельзя идти на клетку игрока
-	// (бой происходит через отдельный механизм атаки)
-	if newX == playerX && newY == playerY {
-		dx = 0
-		newX = m.X
+	// 1. Формируем список предпочтительных ходов (к игроку)
+	preferredMoves := []struct{ dx, dy int }{}
+	if dirX != 0 {
+		preferredMoves = append(preferredMoves, struct{ dx, dy int }{dirX, 0}) // Движение по X
+	}
+	if dirY != 0 {
+		preferredMoves = append(preferredMoves, struct{ dx, dy int }{0, dirY}) // Движение по Y
+	}
+	if dirX != 0 && dirY != 0 {
+		preferredMoves = append(preferredMoves, struct{ dx, dy int }{dirX, dirY}) // Диагональ
 	}
 
-	// Если клетка проходима и там нет другого монстра — двигаемся
-	// Функции CanMoveTo и hasMonsterAt определены в level_queries.go
-	if dx != 0 && level.CanMoveTo(newX, newY) && !level.hasMonsterAt(newX, newY) {
-		if m.logger != nil {
-			m.logger.Printf("AI_MOVE: %s двигается по X на (%d, %d)", m.Name, newX, newY)
+	// 2. Запасные ходы (все 8 направлений) для обхода препятствий
+	fallbackMoves := []struct{ dx, dy int }{
+		{1, 0}, {-1, 0}, {0, 1}, {0, -1},
+		{1, 1}, {1, -1}, {-1, 1}, {-1, -1},
+	}
+
+	// Перемешиваем запасные ходы (алгоритм Фишера-Йетса), чтобы монстр не "застревал" в одном паттерне
+	for i := len(fallbackMoves) - 1; i > 0; i-- {
+		j := rand.IntN(i + 1)
+		fallbackMoves[i], fallbackMoves[j] = fallbackMoves[j], fallbackMoves[i]
+	}
+
+	// Объединяем: сначала пробуем идти к игроку, потом ищем любой свободный путь
+	allMoves := append(preferredMoves, fallbackMoves...)
+
+	// 3. Пробуем сделать ход
+	for _, move := range allMoves {
+		newX := m.X + move.dx
+		newY := m.Y + move.dy
+
+		// БЛОКИРОВКА: Нельзя идти на клетку игрока (бой происходит через отдельный механизм)
+		if newX == playerX && newY == playerY {
+			continue
 		}
-		m.X = newX
-		return // уже сдвинулись, дальше не идём
-	}
 
-	// Пытаемся пойти по Y
-	newX = m.X
-	newY = m.Y + dy
-
-	// БЛОКИРОВКА: Нельзя идти на клетку игрока
-	if newX == playerX && newY == playerY {
-		dy = 0
-		newY = m.Y
-	}
-
-	if dy != 0 && level.CanMoveTo(newX, newY) && !level.hasMonsterAt(newX, newY) {
-		if m.logger != nil {
-			m.logger.Printf("AI_MOVE: %s двигается по Y на (%d, %d)", m.Name, newX, newY)
+		// Если клетка проходима и там нет другого монстра — двигаемся
+		if level.CanMoveTo(newX, newY) && !level.hasMonsterAt(newX, newY) {
+			m.X = newX
+			m.Y = newY
+			if m.logger != nil {
+				m.logger.Printf("AI_MOVE: %s двигается на (%d, %d)", m.Name, newX, newY)
+			}
+			return // Успешно переместились, завершаем ход
 		}
-		m.Y = newY
-		return
 	}
+
+	// Если цикл завершился без return, значит монстр полностью окружен или заблокирован.
+	// Он остается на месте (это корректное поведение).
 }
 
 // =============================================================================

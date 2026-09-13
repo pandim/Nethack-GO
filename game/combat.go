@@ -2,7 +2,7 @@ package game
 
 import (
 	"fmt"
-	"math/rand"
+	"math/rand/v2"
 	"strings"
 	"time"
 
@@ -16,26 +16,27 @@ func (g *Game) addToInventoryWithStack(item *Item) {
 	if item == nil || g.player == nil {
 		return
 	}
+	
+	// Пытаемся добавить в существующую стопку
 	if item.IsStackable() {
 		for _, inv := range g.player.Inventory {
 			if inv != nil && inv.Name == item.Name && inv.Type == item.Type {
-				// ✅ ИСПРАВЛЕНИЕ 1: Добавляем ВЕСЬ подобранный объем (item.Count), а не +1
-				inv.Count += item.Count
+				inv.Count++
 				g.logAndSync("ITEM_STACK: %s добавлен в стопку (всего: %d)", item.Name, inv.Count)
 				return
 			}
 		}
 	}
 	
-	// ✅ ИСПРАВЛЕНИЕ 1: Удалена строка `item.Count = 1`, которая сбрасывала количество.
-	// Теперь предмет добавляется в инвентарь с его исходным количеством (например, 3 зелья).
-	g.player.Inventory = append(g.player.Inventory, item)
-	
-	if item.Count > 1 {
-		g.logAndSync("ITEM_ADD_STACK: %s (x%d) добавлен в инвентарь", item.Name, item.Count)
-	} else {
-		g.logAndSync("ITEM_ADD: %s добавлен в инвентарь", item.Name)
+	// ИСПРАВЛЕНИЕ: Не перезаписываем Count жестко в 1.
+	// Если предмет создан с Count > 1, мы это сохраним. 
+	// Если Count <= 0 (защита от некорректных данных), устанавливаем 1.
+	if item.Count <= 0 {
+		item.Count = 1
 	}
+	
+	g.player.Inventory = append(g.player.Inventory, item)
+	g.logAndSync("ITEM_ADD: %s добавлен в инвентарь (кол-во: %d)", item.Name, item.Count)
 }
 
 // =============================================================================
@@ -211,7 +212,7 @@ func (g *Game) summonMinion(boss *Monster) {
 		{"Орк", 12, 3, 10, 15, 'o', tcell.ColorDarkRed},
 		{"Скелет", 10, 2, 8, 12, 's', tcell.ColorWhite},
 	}
-	mt := minionTypes[rand.Intn(len(minionTypes))]
+	mt := minionTypes[rand.IntN(len(minionTypes))]
 	depth := g.level.Depth
 	hp := mt.hp * (1 + depth/2)
 	attack := mt.attack * (1 + depth/3)
@@ -288,7 +289,7 @@ func getBattleCry(name string) string {
 		"Король Бездны":    {"Я — конец всего сущего!"},
 	}
 	if phrases, ok := cries[name]; ok && len(phrases) > 0 {
-		return phrases[rand.Intn(len(phrases))]
+		return phrases[rand.IntN(len(phrases))]
 	}
 	return ""
 }
@@ -307,7 +308,7 @@ func getDeathPhrase(name string) string {
 		"Король Бездны":    {"Ты не победил..."},
 	}
 	if p, ok := phrases[name]; ok && len(p) > 0 {
-		return p[rand.Intn(len(p))]
+		return p[rand.IntN(len(p))]
 	}
 	return ""
 }
@@ -373,7 +374,7 @@ func (g *Game) attackMonster(monster *Monster) {
 
 		// 🆕 ШАНС ВЫПАДЕНИЯ РЕЛИКВИИ ПРИ УБИЙСТВЕ ЛЮБОГО БОССА (60%)
 		if monster.IsBoss {
-			relicRoll := rand.Intn(100)
+			relicRoll := rand.IntN(100)
 			if relicRoll < 60 {
 				relicData := []struct {
 					relicID   int
@@ -388,7 +389,7 @@ func (g *Game) attackMonster(monster *Monster) {
 					{RelicStatuette, "Древняя статуэтка", 400, '/', tcell.ColorFuchsia},
 					{RelicStarShard, "Осколок звезды", 500, '+', tcell.ColorAqua},
 				}
-				rd := relicData[rand.Intn(len(relicData))]
+				rd := relicData[rand.IntN(len(relicData))]
 				relic := NewRelic(0, 0, rd.relicID, rd.name, rd.sellPrice, rd.symbol, rd.color)
 				g.addToInventoryWithStack(relic)
 				g.addMessage(fmt.Sprintf("💎 С босса выпала реликвия: %s!", rd.name))
@@ -396,7 +397,7 @@ func (g *Game) attackMonster(monster *Monster) {
 			}
 		}
 
-		lootRoll := rand.Intn(100)
+		lootRoll := rand.IntN(100)
 		monsterGenitive := getGenitiveName(monster.Name)
 		if lootRoll < 5 {
 			scrollTypes := []struct {
@@ -409,7 +410,7 @@ func (g *Game) attackMonster(monster *Monster) {
 				{ScrollLightning, "Свиток молнии", tcell.ColorYellow},
 				{ScrollBanishment, "Свиток изгнания", tcell.ColorRed},
 			}
-			st := scrollTypes[rand.Intn(len(scrollTypes))]
+			st := scrollTypes[rand.IntN(len(scrollTypes))]
 			scroll := NewScroll(0, 0, st.sType, st.name, '~', st.color)
 			g.addToInventoryWithStack(scroll)
 			g.addMessage(fmt.Sprintf("С %s выпал %s!", monsterGenitive, st.name))

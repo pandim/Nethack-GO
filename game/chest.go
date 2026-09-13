@@ -1,7 +1,7 @@
 package game
 
 import (
-	"math/rand"
+	"math/rand/v2"
 	"time"
 
 	"github.com/gdamore/tcell/v2"
@@ -37,7 +37,7 @@ type Chest struct {
 // Эта функция используется в NewChest и при возрождении уровней (save.go).
 func newChestContents() string {
 	contents := []string{"potion", "food", "monster"}
-	return contents[rand.Intn(len(contents))]
+	return contents[rand.IntN(len(contents))]
 }
 
 // =============================================================================

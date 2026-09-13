@@ -111,7 +111,6 @@ func (g *Game) handleMessageScroll(ev *tcell.EventKey) bool {
 		g.messageScroll = 0
 		return true
 	}
-
 	switch ev.Rune() {
 	case '[':
 		return g.scrollMessages(scrollBy, maxScroll)
@@ -209,18 +208,15 @@ func (g *Game) handleDeathInput() {
 func getInventoryIndex(ev *tcell.EventKey) int {
 	key := ev.Rune()
 	mods := ev.Modifiers()
-
 	// 1. Обычные цифры 1-9 без Shift (индексы 0-8)
 	if key >= '1' && key <= '9' && mods&tcell.ModShift == 0 {
 		return int(key - '1')
 	}
-
 	// 2. Shift + 1..9
 	// Вариант А: Терминал присылает саму цифру с флагом Shift (современные терминалы)
 	if mods&tcell.ModShift != 0 && key >= '1' && key <= '9' {
 		return int(key - '1') + 9
 	}
-
 	// Вариант Б: Терминал присылает символы сдвига (! @ # $ % ^ & * ()
 	// Это надежный фоллбэк, который также отлично работает для русской раскладки,
 	// так как Shift+1 на русской раскладке тоже дает '!'
@@ -238,7 +234,6 @@ func getInventoryIndex(ev *tcell.EventKey) int {
 	if idx, ok := shiftMap[key]; ok {
 		return idx
 	}
-
 	return -1
 }
 
@@ -246,7 +241,6 @@ func (g *Game) handleInventoryInput(ev *tcell.EventKey) {
 	if g.player == nil {
 		return
 	}
-	
 	index := getInventoryIndex(ev)
 	if index >= 0 {
 		if index >= len(g.player.Inventory) {
@@ -260,7 +254,6 @@ func (g *Game) handleInventoryInput(ev *tcell.EventKey) {
 		g.useItem(index)
 		return
 	}
-
 	if ev.Key() == tcell.KeyEscape || ev.Rune() == 27 || ev.Rune() == 'q' || ev.Rune() == 'Q' {
 		g.showInventory = false
 		g.addMessage("Инвентарь закрыт")
@@ -449,10 +442,10 @@ func (g *Game) handleMovement(key rune, specialKey tcell.Key) {
 			g.nextMusicTrack()
 			return
 		case '+', '=':
-			g.changeMusicVolume(0.1)
+			g.changeMusicVolume(0.05) // ⚡ ИЗМЕНЕНО: было 0.1, стало 0.05 (5%)
 			return
 		case '-', '_':
-			g.changeMusicVolume(-0.1)
+			g.changeMusicVolume(-0.05) // ⚡ ИЗМЕНЕНО: было -0.1, стало -0.05 (5%)
 			return
 		case '?':
 			g.state = StateHelp
@@ -463,7 +456,6 @@ func (g *Game) handleMovement(key rune, specialKey tcell.Key) {
 				g.addMessage("Это самое дно подземелья! Вернитесь на уровень 1 с Амулетом!")
 				return
 			}
-
 			if g.level.StairsDown && g.player.X == g.level.StairsDownX && g.player.Y == g.level.StairsDownY {
 				if g.level.HasAliveBoss() {
 					g.addMessage(fmt.Sprintf("%s охраняет лестницу! Сначала победите его!", g.level.GetBossName()))
@@ -472,7 +464,6 @@ func (g *Game) handleMovement(key rune, specialKey tcell.Key) {
 				g.nextLevel()
 				return
 			}
-
 			if g.level.SecretStairsTargetDepth > 0 && g.player.X == g.level.SecretStairsDownX && g.player.Y == g.level.SecretStairsDownY {
 				g.addMessage("Вы нашли секретный проход! Прыжок через уровень.")
 				g.nextSecretLevel()

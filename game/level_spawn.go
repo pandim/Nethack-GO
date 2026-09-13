@@ -44,18 +44,16 @@ func (l *Level) spawnMonsters(count int) {
 			}
 		}
 		mt := monsterTypes[rand.IntN(len(monsterTypes))]
-		
+
 		// 🆕 СБАЛАНСИРОВАННОЕ МАСШТАБИРОВАНИЕ
 		hp := mt.hp * (1 + depth/2)
-		attack := mt.attack * (1 + depth/3)
-		
+		// ⚡ УСКОРЕННЫЙ РОСТ АТАКИ: было depth/3, стало depth/2
+		attack := mt.attack * (1 + depth/2)
 		// Золото растет плавнее: на 1 этаже x1.5, на 5 этаже x3.5, на 10 этаже x6
 		// Это лучше соотносится с линейным ростом цен у торговцев
 		gold := mt.gold * (1 + depth/2)
-		
 		// Опыт растет линейно, гарантируя стабильный прогресс
 		xp := mt.xp + (depth * 2)
-		
 		m := NewMonster(x, y, mt.name, hp, attack, gold, xp, mt.symbol, mt.color)
 		m.SetLogger(l.logger)
 		l.Monsters = append(l.Monsters, m)
@@ -69,7 +67,7 @@ func (l *Level) spawnItems(count int) {
 	if l == nil || count <= 0 || l.Width < 3 || l.Height < 3 {
 		return
 	}
-	
+
 	depth := l.Depth
 	// НОВОЕ: Value зависит от глубины
 	swordValue := 5 + depth*2
@@ -82,7 +80,7 @@ func (l *Level) spawnItems(count int) {
 		symbol rune
 		color  tcell.Color
 	}{
-		{"Зелье здоровья", ItemTypePotion, 10, '!', tcell.ColorRed},
+		{"Зелье здоровья", ItemTypePotion, 35, '!', tcell.ColorRed},
 		{"Меч", ItemTypeWeapon, swordValue, '/', tcell.ColorYellow},
 		{"Щит", ItemTypeArmor, shieldValue, '[', tcell.ColorBlue},
 		{"Мешок золота", ItemTypeGold, 20, '$', tcell.ColorYellow},
@@ -233,15 +231,14 @@ func (l *Level) respawnMonsters() {
 			}
 		}
 		mt := monsterTypes[rand.IntN(len(monsterTypes))]
-		
+
 		// 🆕 СБАЛАНСИРОВАННОЕ МАСШТАБИРОВАНИЕ С УЧЕТОМ VisitCount
 		hp := mt.hp * (1 + l.Depth/2) * strengthMultiplier
-		attack := mt.attack * (1 + l.Depth/3) * strengthMultiplier
-		
+		// ⚡ УСКОРЕННЫЙ РОСТ АТАКИ: было depth/3, стало depth/2
+		attack := mt.attack * (1 + l.Depth/2) * strengthMultiplier
 		// Золото также масштабируется от множителя посещений
 		gold := mt.gold * (1 + l.Depth/2) * strengthMultiplier
 		xp := mt.xp + (l.Depth * 2)
-		
 		m := NewMonster(x, y, mt.name, hp, attack, gold, xp, mt.symbol, mt.color)
 		m.SetLogger(l.logger)
 		l.Monsters = append(l.Monsters, m)
@@ -262,12 +259,12 @@ func newMerchantItems(depth, visitCount int) []*Item {
 		symbol       rune
 		color        tcell.Color
 	}{
-		{"Зелье здоровья", ItemTypePotion, 10, 30, '!', tcell.ColorRed},
+		{"Зелье здоровья", ItemTypePotion, 35, 30, '!', tcell.ColorRed},
 		{"Еда", ItemTypePotion, 0, 15, '%', tcell.ColorPurple},
 		{"Меч", ItemTypeWeapon, swordValue, 50, '/', tcell.ColorYellow},
 		{"Щит", ItemTypeArmor, shieldValue, 40, '[', tcell.ColorBlue},
 	}
-	
+
 	items := make([]*Item, 0)
 	priceMultiplier := visitCount
 	for _, bp := range basePrices {

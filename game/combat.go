@@ -103,15 +103,65 @@ func (g *Game) processTurn(dx, dy int) {
 			if g.checkPlayerDeath() {
 				return
 			}
-			// 🆕 ПРОВЕРКА ЛОВУШЕК
+						// 🆕 ПРОВЕРКА ЛОВУШЕК (С УЧЕТОМ ТИПОВ)
 			for _, trap := range g.level.Traps {
 				if trap != nil && !trap.Triggered && trap.X == g.player.X && trap.Y == g.player.Y {
 					trap.Triggered = true
-					g.player.HP -= 3
-					g.addMessage("Щёлк! Вы наступили на ловушку! -3 HP. Телепортация...")
-					newX, newY := g.level.FindFreeSpot()
-					g.player.X = newX
-					g.player.Y = newY
+
+					switch trap.Type {
+					case TrapTypeDamage:
+						g.player.HP -= 3
+						g.addMessage("Щёлк! Вы наступили на ловушку! -3 HP. Телепортация...")
+						g.logAndSync("TRAP_DAMAGE: Сработала ловушка на (%d,%d). HP: %d -> %d. Телепортация...", 
+							trap.X, trap.Y, g.player.HP+3, g.player.HP)
+						newX, newY := g.level.FindFreeSpot()
+						g.player.X = newX
+						g.player.Y = newY
+
+					case TrapTypeGoldThief:
+						if g.player.Gold > 0 {
+							stolen := g.player.Gold / 4
+							if stolen < 1 {
+								stolen = g.player.Gold
+							}
+							oldGold := g.player.Gold
+							g.player.Gold -= stolen
+							g.addMessage(fmt.Sprintf("Щёлк! Ловушка-вор украла %d золота!", stolen))
+							g.logAndSync("TRAP_THIEF: Сработала ловушка-вор на (%d,%d). Золото: %d -> %d (украдено %d)", 
+								trap.X, trap.Y, oldGold, g.player.Gold, stolen)
+						} else {
+							g.addMessage("Щёлк! Ловушка-вор попыталась украсть золото, но карманы пусты.")
+							g.logAndSync("TRAP_THIEF: Сработала ловушка-вор на (%d,%d), но золота нет", trap.X, trap.Y)
+						}
+
+					case TrapTypeCurse:
+						cursed := false
+						if g.player.EquippedWeapon != nil && g.player.EquippedWeapon.Value > 0 {
+							if g.player.EquippedArmor == nil || rand.IntN(2) == 0 {
+								oldVal := g.player.EquippedWeapon.Value
+								g.player.EquippedWeapon.Value--
+								g.player.AttackVal--
+								cursed = true
+								g.addMessage("Щёлк! Проклятие! Ваше оружие потеряло часть силы (ATK -1).")
+								g.logAndSync("TRAP_CURSE: Проклято оружие '%s' на (%d,%d). ATK бонус: %d -> %d", 
+									g.player.EquippedWeapon.Name, trap.X, trap.Y, oldVal, g.player.EquippedWeapon.Value)
+							}
+						}
+						if !cursed && g.player.EquippedArmor != nil && g.player.EquippedArmor.Value > 0 {
+							oldVal := g.player.EquippedArmor.Value
+							g.player.EquippedArmor.Value--
+							g.player.Defense--
+							cursed = true
+							g.addMessage("Щёлк! Проклятие! Ваша броня потеряла часть прочности (DEF -1).")
+							g.logAndSync("TRAP_CURSE: Проклята броня '%s' на (%d,%d). DEF бонус: %d -> %d", 
+								g.player.EquippedArmor.Name, trap.X, trap.Y, oldVal, g.player.EquippedArmor.Value)
+						}
+						if !cursed {
+							g.addMessage("Щёлк! Ловушка с проклятием, но вам нечего портить.")
+							g.logAndSync("TRAP_CURSE: Сработала на (%d,%d), но нечего портить", trap.X, trap.Y)
+						}
+					}
+
 					if g.checkPlayerDeath() {
 						return
 					}
@@ -216,7 +266,8 @@ func (g *Game) summonMinion(boss *Monster) {
 	mt := minionTypes[rand.IntN(len(minionTypes))]
 	depth := g.level.Depth
 	hp := mt.hp * (1 + depth/2)
-	attack := mt.attack * (1 + depth/3)
+	// ⚡ УСКОРЕННЫЙ РОСТ АТАКИ: было depth/3, стало depth/2
+	attack := mt.attack * (1 + depth/2)
 	gold := mt.gold * depth
 	xp := mt.xp + depth*2
 	x, y := g.level.FindFreeSpotNear(boss.X, boss.Y)
@@ -454,19 +505,35 @@ func (g *Game) monsterAttacksPlayer(monster *Monster) {
 	}
 	monsterDamage := monster.Attack()
 	actualDamage := monsterDamage - g.player.Defense
+
+	// ⚡ ПРОЦЕНТНЫЙ МИНИМАЛЬНЫЙ УРОН
+	// Если защита игрока полностью поглощает урон, монстр всё равно наносит
+	// минимум 10% от своей атаки (но не меньше 1).
+	// Это предотвращает ситуацию, когда сильные монстры становятся бесполезными
+	// против игрока в хорошей броне.
 	if actualDamage < 1 {
-		actualDamage = 1
+		actualDamage = monsterDamage / 10
+		if actualDamage < 1 {
+			actualDamage = 1
+		}
 	}
+
 	g.player.HP -= actualDamage
 	// 🆕 ФИКСИРУЕМ ПРИЧИНУ СМЕРТИ ОТ МОНСТРА
 	if g.player.HP <= 0 {
 		g.deathReason = fmt.Sprintf("Убит: %s", monster.Name)
 	}
 	g.addMessage(fmt.Sprintf("%s атакует вас на %d урона!", monster.Name, actualDamage))
+
+	// Двойная атака босса
 	if monster.IsBoss && monster.BossAbility == BossAbilityDoubleAttack && g.player.HP > 0 {
 		secondDamage := monsterDamage - g.player.Defense
+		// ⚡ Применяем тот же процентный минимум ко второму удару
 		if secondDamage < 1 {
-			secondDamage = 1
+			secondDamage = monsterDamage / 10
+			if secondDamage < 1 {
+				secondDamage = 1
+			}
 		}
 		g.player.HP -= secondDamage
 		g.addMessage(fmt.Sprintf("%s наносит ВТОРОЙ удар на %d урона!", monster.Name, secondDamage))

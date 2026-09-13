@@ -8,14 +8,17 @@ import (
 // СТРУКТУРА ТОРГОВЦА
 // =============================================================================
 type Merchant struct {
-	X, Y  int     // координаты на карте
-	Items []*Item // товары на продажу
+	X, Y  int
+	Items []*Item
 }
 
 // =============================================================================
-// СОЗДАНИЕ ТОРГОВЦА (для первого посещения)
+// СОЗДАНИЕ ТОРГОВЦА (Value мечей и щитов масштабируется)
 // =============================================================================
 func NewMerchant(x, y, depth int) *Merchant {
+	swordValue := 5 + depth*2
+	shieldValue := 3 + depth*2
+
 	basePrices := []struct {
 		name   string
 		itype  ItemType
@@ -26,13 +29,14 @@ func NewMerchant(x, y, depth int) *Merchant {
 	}{
 		{"Зелье здоровья", ItemTypePotion, 10, 30, '!', tcell.ColorRed},
 		{"Еда", ItemTypePotion, 0, 15, '%', tcell.ColorPurple},
-		{"Меч", ItemTypeWeapon, 5, 50, '/', tcell.ColorYellow},
-		{"Щит", ItemTypeArmor, 3, 40, '[', tcell.ColorBlue},
+		{"Меч", ItemTypeWeapon, swordValue, 50, '/', tcell.ColorYellow},
+		{"Щит", ItemTypeArmor, shieldValue, 40, '[', tcell.ColorBlue},
 	}
 
 	items := make([]*Item, 0)
 	for _, bp := range basePrices {
-		price := bp.price + depth*5
+		// Базовая цена тоже немного растет с глубиной
+		price := bp.price + depth*5 
 		item := NewItem(0, 0, bp.name, bp.itype, bp.value, bp.symbol, bp.color)
 		item.Price = price
 		items = append(items, item)

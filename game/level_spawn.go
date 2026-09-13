@@ -47,8 +47,7 @@ func (l *Level) spawnMonsters(count int) {
 		hp := mt.hp * (1 + depth/2)
 		attack := mt.attack * (1 + depth/3)
 		gold := mt.gold * depth
-		xp := mt.xp + depth*2 // ✅ ИСПРАВЛЕНО: добавлено *
-
+		xp := mt.xp + depth*2 
 		m := NewMonster(x, y, mt.name, hp, attack, gold, xp, mt.symbol, mt.color)
 		m.SetLogger(l.logger)
 		l.Monsters = append(l.Monsters, m)
@@ -56,12 +55,18 @@ func (l *Level) spawnMonsters(count int) {
 }
 
 // =============================================================================
-// СПАВН ПРЕДМЕТОВ
+// СПАВН ПРЕДМЕТОВ (Value мечей и щитов масштабируется)
 // =============================================================================
 func (l *Level) spawnItems(count int) {
 	if l == nil || count <= 0 || l.Width < 3 || l.Height < 3 {
 		return
 	}
+	
+	depth := l.Depth
+	// НОВОЕ: Value зависит от глубины
+	swordValue := 5 + depth*2
+	shieldValue := 3 + depth*2
+
 	itemTypes := []struct {
 		name   string
 		itype  ItemType
@@ -70,8 +75,8 @@ func (l *Level) spawnItems(count int) {
 		color  tcell.Color
 	}{
 		{"Зелье здоровья", ItemTypePotion, 10, '!', tcell.ColorRed},
-		{"Меч", ItemTypeWeapon, 5, '/', tcell.ColorYellow},
-		{"Щит", ItemTypeArmor, 3, '[', tcell.ColorBlue},
+		{"Меч", ItemTypeWeapon, swordValue, '/', tcell.ColorYellow},
+		{"Щит", ItemTypeArmor, shieldValue, '[', tcell.ColorBlue},
 		{"Мешок золота", ItemTypeGold, 20, '$', tcell.ColorYellow},
 		{"Еда", ItemTypePotion, 0, '%', tcell.ColorPurple},
 	}
@@ -101,7 +106,6 @@ func (l *Level) spawnMerchants(depth int) {
 	if l == nil {
 		return
 	}
-	// 🆕 Торговцы на уровнях: 2, 5, 8, 11, 14
 	if depth != 2 && depth != 5 && depth != 8 && depth != 11 && depth != 14 {
 		return
 	}
@@ -166,8 +170,6 @@ func (l *Level) spawnChests() {
 			return
 		}
 	}
-	// 🆕 ИСПРАВЛЕНИЕ: Используем NewGoldenChest для золотых сундуков,
-	// чтобы поле Contents корректно устанавливалось в "golden".
 	isGolden := rand.IntN(100) < 20
 	var chest *Chest
 	if isGolden {
@@ -179,13 +181,12 @@ func (l *Level) spawnChests() {
 }
 
 // =============================================================================
-// 🆕 ВОЗРОЖДЕНИЕ МОНСТРОВ (ПРИ ПОВТОРНОМ ПОСЕЩЕНИИ)
+// ВОЗРОЖДЕНИЕ МОНСТРОВ (ПРИ ПОВТОРНОМ ПОСЕЩЕНИИ)
 // =============================================================================
 func (l *Level) respawnMonsters() {
 	if l == nil {
 		return
 	}
-	// Сохраняем живых боссов: они не должны исчезать при повторном посещении.
 	monsters := make([]*Monster, 0, len(l.Monsters))
 	for _, monster := range l.Monsters {
 		if monster != nil && monster.IsBoss && monster.HP > 0 {
@@ -193,7 +194,6 @@ func (l *Level) respawnMonsters() {
 		}
 	}
 	l.Monsters = monsters
-
 	count := (5 + l.Depth) / 2
 	if count < 2 {
 		count = 2
@@ -226,15 +226,9 @@ func (l *Level) respawnMonsters() {
 		}
 		mt := monsterTypes[rand.IntN(len(monsterTypes))]
 		hp := mt.hp * (1 + l.Depth/2) * strengthMultiplier
-
-		// ✅ ИСПРАВЛЕНО: убран пробел в strengthMultiplier
 		attack := mt.attack * (1 + l.Depth/3) * strengthMultiplier
-
 		gold := mt.gold * l.Depth * strengthMultiplier
-
-		// ✅ ИСПРАВЛЕНО: добавлено * перед 2
 		xp := mt.xp + l.Depth*2
-
 		m := NewMonster(x, y, mt.name, hp, attack, gold, xp, mt.symbol, mt.color)
 		m.SetLogger(l.logger)
 		l.Monsters = append(l.Monsters, m)
@@ -242,9 +236,12 @@ func (l *Level) respawnMonsters() {
 }
 
 // =============================================================================
-// 🆕 ГЕНЕРАЦИЯ ТОВАРОВ ТОРГОВЦА
+// ГЕНЕРАЦИЯ ТОВАРОВ ТОРГОВЦА (Value мечей и щитов масштабируется)
 // =============================================================================
 func newMerchantItems(depth, visitCount int) []*Item {
+	swordValue := 5 + depth*2
+	shieldValue := 3 + depth*2
+
 	basePrices := []struct {
 		name         string
 		itype        ItemType
@@ -254,17 +251,14 @@ func newMerchantItems(depth, visitCount int) []*Item {
 	}{
 		{"Зелье здоровья", ItemTypePotion, 10, 30, '!', tcell.ColorRed},
 		{"Еда", ItemTypePotion, 0, 15, '%', tcell.ColorPurple},
-		{"Меч", ItemTypeWeapon, 5, 50, '/', tcell.ColorYellow},
-		{"Щит", ItemTypeArmor, 3, 40, '[', tcell.ColorBlue},
+		{"Меч", ItemTypeWeapon, swordValue, 50, '/', tcell.ColorYellow},
+		{"Щит", ItemTypeArmor, shieldValue, 40, '[', tcell.ColorBlue},
 	}
-
-	// ✅ ИСПРАВЛЕНО: []*Item вместо []Item
+	
 	items := make([]*Item, 0)
 	priceMultiplier := visitCount
-
 	for _, bp := range basePrices {
 		if rand.IntN(100) < 70 {
-			// ✅ ИСПРАВЛЕНО: добавлено * перед 5
 			price := (bp.price + depth*5) * priceMultiplier
 			item := NewItem(0, 0, bp.name, bp.itype, bp.value, bp.symbol, bp.color)
 			item.Price = price

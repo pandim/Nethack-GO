@@ -8,22 +8,20 @@ import (
 )
 
 type Player struct {
-	X, Y      int
-	HP        int
-	MaxHP     int
-	Level     int
-	XP        int
-	Gold      int
-	AttackVal int
-	Defense   int
-	Hunger    int
-	Inventory []*Item
-
+	X, Y           int
+	HP             int
+	MaxHP          int
+	Level          int
+	XP             int
+	Gold           int
+	AttackVal      int
+	Defense        int
+	Hunger         int
+	Inventory      []*Item
 	EquippedWeapon *Item
 	EquippedArmor  *Item
-
-	HasAmulet bool
-	logger    *log.Logger
+	HasAmulet      bool
+	logger         *log.Logger
 }
 
 func NewPlayer(x, y int) *Player {
@@ -48,7 +46,6 @@ func (p *Player) Move(dx, dy int) {
 	p.X += dx
 	p.Y += dy
 	p.Hunger += 1 // Расход сытости 2 за ход - 1 тестовое значение
-
 	if p.logger != nil {
 		p.logger.Printf("MOVE: Игрок переместился на (%d, %d). Голод: %d", p.X, p.Y, p.Hunger)
 	}
@@ -82,6 +79,9 @@ func (p *Player) Heal(amount int) {
 	}
 }
 
+// =============================================================================
+// ЭКИПИРОВКА ОРУЖИЯ (НОВАЯ ФОРМУЛА АПГРЕЙДА)
+// =============================================================================
 func (p *Player) EquipWeapon(item *Item) {
 	if p == nil || item == nil {
 		return
@@ -97,14 +97,22 @@ func (p *Player) EquipWeapon(item *Item) {
 		}
 		return
 	}
+	
+	// НОВАЯ ФОРМУЛА: бонус зависит от ценности предмета
+	bonus := 1 + item.Value/8
 	oldValue := p.EquippedWeapon.Value
-	p.EquippedWeapon.Value += 1
-	p.AttackVal += 1
+	p.EquippedWeapon.Value += bonus
+	p.AttackVal += bonus
+	
 	if p.logger != nil {
-		p.logger.Printf("UPGRADE_WEAPON: %s улучшено. ATK: %d -> %d", p.EquippedWeapon.Name, oldValue, p.EquippedWeapon.Value)
+		p.logger.Printf("UPGRADE_WEAPON: %s улучшено на +%d (от предмета Value=%d). ATK: %d -> %d", 
+			p.EquippedWeapon.Name, bonus, item.Value, oldValue, p.AttackVal)
 	}
 }
 
+// =============================================================================
+// ЭКИПИРОВКА БРОНИ (НОВАЯ ФОРМУЛА АПГРЕЙДА)
+// =============================================================================
 func (p *Player) EquipArmor(item *Item) {
 	if p == nil || item == nil {
 		return
@@ -120,11 +128,16 @@ func (p *Player) EquipArmor(item *Item) {
 		}
 		return
 	}
+	
+	// НОВАЯ ФОРМУЛА: бонус зависит от ценности предмета
+	bonus := 1 + item.Value/8
 	oldValue := p.EquippedArmor.Value
-	p.EquippedArmor.Value += 1
-	p.Defense += 1
+	p.EquippedArmor.Value += bonus
+	p.Defense += bonus
+	
 	if p.logger != nil {
-		p.logger.Printf("UPGRADE_ARMOR: %s улучшена. DEF: %d -> %d", p.EquippedArmor.Name, oldValue, p.EquippedArmor.Value)
+		p.logger.Printf("UPGRADE_ARMOR: %s улучшена на +%d (от предмета Value=%d). DEF: %d -> %d", 
+			p.EquippedArmor.Name, bonus, item.Value, oldValue, p.Defense)
 	}
 }
 

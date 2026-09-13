@@ -16,25 +16,26 @@ func (g *Game) addToInventoryWithStack(item *Item) {
 	if item == nil || g.player == nil {
 		return
 	}
-	
+
 	// Пытаемся добавить в существующую стопку
 	if item.IsStackable() {
 		for _, inv := range g.player.Inventory {
-			if inv != nil && inv.Name == item.Name && inv.Type == item.Type {
+			if inv != nil && inv.Name == item.Name && inv.Type == item.Type &&
+				(item.Type != ItemTypeRelic || inv.RelicID == item.RelicID) {
 				inv.Count++
 				g.logAndSync("ITEM_STACK: %s добавлен в стопку (всего: %d)", item.Name, inv.Count)
 				return
 			}
 		}
 	}
-	
+
 	// ИСПРАВЛЕНИЕ: Не перезаписываем Count жестко в 1.
-	// Если предмет создан с Count > 1, мы это сохраним. 
+	// Если предмет создан с Count > 1, мы это сохраним.
 	// Если Count <= 0 (защита от некорректных данных), устанавливаем 1.
 	if item.Count <= 0 {
 		item.Count = 1
 	}
-	
+
 	g.player.Inventory = append(g.player.Inventory, item)
 	g.logAndSync("ITEM_ADD: %s добавлен в инвентарь (кол-во: %d)", item.Name, item.Count)
 }
@@ -170,8 +171,8 @@ func (g *Game) processBossAbilities(boss *Monster) {
 		return
 	}
 
-	// ✅ ИСПРАВЛЕНИЕ 2: Активируем способности босса ТОЛЬКО если он находится в бою 
-	// (игрок в соседней клетке). Это предотвращает бесконечную регенерацию босса, 
+	// ✅ ИСПРАВЛЕНИЕ 2: Активируем способности босса ТОЛЬКО если он находится в бою
+	// (игрок в соседней клетке). Это предотвращает бесконечную регенерацию босса,
 	// пока игрок исследует другие части уровня или стоит далеко.
 	inCombat := g.monsterIsAdjacent(boss)
 	if !inCombat {
@@ -249,6 +250,28 @@ func (g *Game) pickupItem(item *Item) {
 		g.level.RemoveItem(item)
 		return
 	}
+	if item.Type == ItemTypeWeapon {
+		wasEquipped := g.player.EquippedWeapon != nil
+		g.player.EquipWeapon(item)
+		g.level.RemoveItem(item)
+		if wasEquipped {
+			g.addMessage(fmt.Sprintf("Вы подобрали %s и улучшили оружие до ATK +%d", item.Name, g.player.EquippedWeapon.Value))
+		} else {
+			g.addMessage(fmt.Sprintf("Вы подобрали %s и экипировали его (ATK +%d)", item.Name, g.player.EquippedWeapon.Value))
+		}
+		return
+	}
+	if item.Type == ItemTypeArmor {
+		wasEquipped := g.player.EquippedArmor != nil
+		g.player.EquipArmor(item)
+		g.level.RemoveItem(item)
+		if wasEquipped {
+			g.addMessage(fmt.Sprintf("Вы подобрали %s и улучшили броню до DEF +%d", item.Name, g.player.EquippedArmor.Value))
+		} else {
+			g.addMessage(fmt.Sprintf("Вы подобрали %s и экипировали ее (DEF +%d)", item.Name, g.player.EquippedArmor.Value))
+		}
+		return
+	}
 	g.addToInventoryWithStack(item)
 	g.level.RemoveItem(item)
 	g.addMessage(fmt.Sprintf("Вы подобрали %s", item.Name))
@@ -259,16 +282,16 @@ func (g *Game) pickupItem(item *Item) {
 // =============================================================================
 func getGenitiveName(name string) string {
 	genitiveMap := map[string]string{
-		"Гоблин":           "гоблина",
-		"Орк":              "орка",
-		"Скелет":           "скелета",
-		"Крыса":            "крысы",
-		"Ловушка":          "ловушки",
-		"Вождь Гоблинов":   "вождя гоблинов",
-		"Некромант":        "некроманта",
-		"Древний Дракон":   "древнего дракона",
+		"Гоблин":            "гоблина",
+		"Орк":               "орка",
+		"Скелет":            "скелета",
+		"Крыса":             "крысы",
+		"Ловушка":           "ловушки",
+		"Вождь Гоблинов":    "вождя гоблинов",
+		"Некромант":         "некроманта",
+		"Древний Дракон":    "древнего дракона",
 		"Повелитель Бездны": "повелителя бездны",
-		"Король Бездны":    "короля бездны",
+		"Король Бездны":     "короля бездны",
 	}
 	if gen, ok := genitiveMap[name]; ok {
 		return gen
@@ -278,15 +301,15 @@ func getGenitiveName(name string) string {
 
 func getBattleCry(name string) string {
 	cries := map[string][]string{
-		"Гоблин":           {"Резать! Кусать!", "Смерть длинноногому!"},
-		"Орк":              {"Сокрушу твои кости!", "Умри, ничтожество!"},
-		"Скелет":           {"Плоть гниёт, а кости вечны...", "Твоё тепло скоро угаснет."},
-		"Крыса":            {"Грызть! Рвать! Жрать!", "Нас много, а ты один!"},
-		"Вождь Гоблинов":   {"Разорвать его на части!"},
-		"Некромант":        {"Твоя душа станет моей марионеткой!"},
-		"Древний Дракон":   {"Сгори в моём пламени!"},
+		"Гоблин":            {"Резать! Кусать!", "Смерть длинноногому!"},
+		"Орк":               {"Сокрушу твои кости!", "Умри, ничтожество!"},
+		"Скелет":            {"Плоть гниёт, а кости вечны...", "Твоё тепло скоро угаснет."},
+		"Крыса":             {"Грызть! Рвать! Жрать!", "Нас много, а ты один!"},
+		"Вождь Гоблинов":    {"Разорвать его на части!"},
+		"Некромант":         {"Твоя душа станет моей марионеткой!"},
+		"Древний Дракон":    {"Сгори в моём пламени!"},
 		"Повелитель Бездны": {"Бездна голодна..."},
-		"Король Бездны":    {"Я — конец всего сущего!"},
+		"Король Бездны":     {"Я — конец всего сущего!"},
 	}
 	if phrases, ok := cries[name]; ok && len(phrases) > 0 {
 		return phrases[rand.IntN(len(phrases))]
@@ -296,16 +319,16 @@ func getBattleCry(name string) string {
 
 func getDeathPhrase(name string) string {
 	phrases := map[string][]string{
-		"Гоблин":           {"Нет! Моё золото!", "Мама!"},
-		"Орк":              {"Слава Оркам!", "Грррр..."},
-		"Скелет":           {"Кости... крошатся...", "Во прах..."},
-		"Крыса":            {"Писк..."},
-		"Ловушка":          {"Щёлк... и тишина."},
-		"Вождь Гоблинов":   {"Племя... не простит тебя!"},
-		"Некромант":        {"Смерть... это лишь начало..."},
-		"Древний Дракон":   {"Мой огонь... погаснет..."},
+		"Гоблин":            {"Нет! Моё золото!", "Мама!"},
+		"Орк":               {"Слава Оркам!", "Грррр..."},
+		"Скелет":            {"Кости... крошатся...", "Во прах..."},
+		"Крыса":             {"Писк..."},
+		"Ловушка":           {"Щёлк... и тишина."},
+		"Вождь Гоблинов":    {"Племя... не простит тебя!"},
+		"Некромант":         {"Смерть... это лишь начало..."},
+		"Древний Дракон":    {"Мой огонь... погаснет..."},
 		"Повелитель Бездны": {"Бездна... ждёт тебя..."},
-		"Король Бездны":    {"Ты не победил..."},
+		"Король Бездны":     {"Ты не победил..."},
 	}
 	if p, ok := phrases[name]; ok && len(p) > 0 {
 		return p[rand.IntN(len(p))]

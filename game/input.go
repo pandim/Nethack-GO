@@ -83,7 +83,8 @@ func (g *Game) handleInput() {
 			return
 		}
 		if g.showInventory {
-			g.handleInventoryInput(ev.Rune())
+			// Передаем всё событие клавиши, а не только Rune
+			g.handleInventoryInput(ev)
 		} else {
 			g.handleMovement(ev.Rune(), ev.Key())
 		}
@@ -138,7 +139,6 @@ func (g *Game) scrollMessages(delta, maxScroll int) bool {
 	return true
 }
 
-// ИСПРАВЛЕНО: убраны однострочные if-else, которые ломали компиляцию
 func (g *Game) handleStartMenuInput() {
 	if g.screen == nil {
 		return
@@ -205,13 +205,51 @@ func (g *Game) handleDeathInput() {
 	}
 }
 
-func (g *Game) handleInventoryInput(key rune) {
+// getInventoryIndex определяет индекс предмета (0-17) по нажатой клавише
+func getInventoryIndex(ev *tcell.EventKey) int {
+	key := ev.Rune()
+	mods := ev.Modifiers()
+
+	// 1. Обычные цифры 1-9 без Shift (индексы 0-8)
+	if key >= '1' && key <= '9' && mods&tcell.ModShift == 0 {
+		return int(key - '1')
+	}
+
+	// 2. Shift + 1..9
+	// Вариант А: Терминал присылает саму цифру с флагом Shift (современные терминалы)
+	if mods&tcell.ModShift != 0 && key >= '1' && key <= '9' {
+		return int(key - '1') + 9
+	}
+
+	// Вариант Б: Терминал присылает символы сдвига (! @ # $ % ^ & * ()
+	// Это надежный фоллбэк, который также отлично работает для русской раскладки,
+	// так как Shift+1 на русской раскладке тоже дает '!'
+	shiftMap := map[rune]int{
+		'!': 9,  // Shift + 1
+		'@': 10, // Shift + 2
+		'#': 11, // Shift + 3
+		'$': 12, // Shift + 4
+		'%': 13, // Shift + 5
+		'^': 14, // Shift + 6
+		'&': 15, // Shift + 7
+		'*': 16, // Shift + 8
+		'(': 17, // Shift + 9
+	}
+	if idx, ok := shiftMap[key]; ok {
+		return idx
+	}
+
+	return -1
+}
+
+func (g *Game) handleInventoryInput(ev *tcell.EventKey) {
 	if g.player == nil {
 		return
 	}
-	if key >= '1' && key <= '9' {
-		index := int(key - '1')
-		if index < 0 || index >= len(g.player.Inventory) {
+	
+	index := getInventoryIndex(ev)
+	if index >= 0 {
+		if index >= len(g.player.Inventory) {
 			g.addMessage("Такого предмета нет!")
 			return
 		}
@@ -222,7 +260,8 @@ func (g *Game) handleInventoryInput(key rune) {
 		g.useItem(index)
 		return
 	}
-	if key == 27 || key == 'q' || key == 'Q' {
+
+	if ev.Key() == tcell.KeyEscape || ev.Rune() == 27 || ev.Rune() == 'q' || ev.Rune() == 'Q' {
 		g.showInventory = false
 		g.addMessage("Инвентарь закрыт")
 		return
@@ -244,7 +283,7 @@ func (g *Game) useItem(index int) {
 				g.addMessage("Вам не надо есть, вы можете лопнуть!")
 				return
 			}
-			g.player.Hunger -= 500
+			g.player.Hunger -= g.player.Hunger / 2
 			g.addMessage("Вы поели. Голод уменьшился.")
 		} else {
 			if g.player.MaxHP > 0 {
@@ -295,7 +334,6 @@ func (g *Game) consumeItem(index int) {
 	}
 }
 
-// ИСПРАВЛЕНО: func (g *Game) вместо func (g  Game)
 func (g *Game) useScroll(index int) {
 	if g.player == nil || index < 0 || index >= len(g.player.Inventory) {
 		return
@@ -421,13 +459,11 @@ func (g *Game) handleMovement(key rune, specialKey tcell.Key) {
 			g.helpPage = helpPageControls
 			return
 		case '>':
-			// 🆕 ЖЕСТКАЯ БЛОКИРОВКА СПУСКА НИЖЕ 15 ЭТАЖА
 			if g.depth == FinalBossDepth {
 				g.addMessage("Это самое дно подземелья! Вернитесь на уровень 1 с Амулетом!")
 				return
 			}
 
-			// 1. Сначала проверяем обычную лестницу
 			if g.level.StairsDown && g.player.X == g.level.StairsDownX && g.player.Y == g.level.StairsDownY {
 				if g.level.HasAliveBoss() {
 					g.addMessage(fmt.Sprintf("%s охраняет лестницу! Сначала победите его!", g.level.GetBossName()))
@@ -437,7 +473,6 @@ func (g *Game) handleMovement(key rune, specialKey tcell.Key) {
 				return
 			}
 
-			// 2. Проверяем СЕКРЕТНУЮ лестницу
 			if g.level.SecretStairsTargetDepth > 0 && g.player.X == g.level.SecretStairsDownX && g.player.Y == g.level.SecretStairsDownY {
 				g.addMessage("Вы нашли секретный проход! Прыжок через уровень.")
 				g.nextSecretLevel()

@@ -8,9 +8,6 @@ import (
 	"github.com/gdamore/tcell/v2"
 )
 
-// =============================================================================
-// ОТРИСОВКА
-// =============================================================================
 func (g *Game) drawString(x, y int, s string, style tcell.Style) {
 	if g.screen == nil {
 		return
@@ -53,14 +50,12 @@ func (g *Game) drawRawString(x, y int, s string, style tcell.Style) {
 	}
 }
 
-// render — основная функция отрисовки игрового экрана
 func (g *Game) render() {
 	if g.screen == nil {
 		return
 	}
 	g.screen.Clear()
 
-	// 🆕 МИГАНИЕ ЭКРАНА ПРИ ПОДБОРЕ АМУЛЕТА (3 секунды)
 	if !g.amuletFlashUntil.IsZero() && time.Now().Before(g.amuletFlashUntil) {
 		phase := (time.Now().UnixNano() / int64(250*time.Millisecond)) % 2
 		if phase == 0 {
@@ -85,10 +80,10 @@ func (g *Game) render() {
 			g.player.Render(g.screen, 1, 0)
 		}
 	}
+
 	g.renderStatus()
 	g.renderMessages()
 
-	// 🆕 Проверка критического HP и сытости
 	if g.player != nil {
 		if g.player.HP <= 5 && !g.wasInCriticalHP {
 			g.popupMessage = "Тебе надо срочно подлечиться, ты еле волочишь ноги!"
@@ -96,28 +91,26 @@ func (g *Game) render() {
 		} else if g.player.HP > 5 {
 			g.wasInCriticalHP = false
 		}
+
 		if g.player.Hunger >= 200 {
 			g.wasTooFull = false
 		}
 	}
 
-	// 🆕 Рисуем попап ТОЛЬКО если мы в основном экране игры и инвентарь закрыт
 	if g.state == StatePlaying && !g.showInventory {
 		g.renderPopup()
 	}
+
 	g.screen.Show()
 }
 
-// =============================================================================
-// СТАРТОВОЕ МЕНЮ
-// =============================================================================
 func (g *Game) renderStartMenu() {
 	if g.screen == nil {
 		return
 	}
 	g.screen.Clear()
 	asciiTitle := []string{
-		"                                                                                ",
+		" ",
 		"███╗░░██╗███████╗████████╗██╗░░██╗░█████╗░░█████╗░██╗░░██╗░░░░░██████╗░░█████╗░ ",
 		"████╗░██║██╔════╝╚══██╔══╝██║░░██║██╔══██╗██╔══██╗██║░██╔╝░░░░██╔════╝░██╔══██╗ ",
 		"██╔██╗██║█████╗░░░░░██║░░░███████║███████║██║░░╚═╝█████═╝░███╗██║░░██╗░██║░░██║ ",
@@ -133,15 +126,18 @@ func (g *Game) renderStartMenu() {
 	for i, line := range asciiTitle {
 		g.drawString(0, i, line, titleStyle)
 	}
+
 	hasSave := false
 	if _, err := os.Stat(saveFile); err == nil {
 		hasSave = true
 	}
+
 	if hasSave {
 		g.drawCentered(9, "Найдено сохранение игры!", highlightStyle)
 	} else {
 		g.drawCentered(9, "Добро пожаловать в подземелье!", style)
 	}
+
 	y := 11
 	if hasSave {
 		g.drawCentered(y, "[L] Загрузить игру", style)
@@ -151,17 +147,11 @@ func (g *Game) renderStartMenu() {
 	y++
 	g.drawCentered(y, "[M] Музыка вкл/выкл", style)
 	g.drawCentered(screenHeight-2, "[ESC] Выход", dimStyle)
-	
-		// ==========================================================
-	// 🆕 ДОБАВЛЕНИЕ: Отображение версии в правом нижнем углу
-	// ==========================================================
+
 	versionStyle := tcell.StyleDefault.Foreground(tcell.ColorDarkGray).Background(tcell.ColorBlack)
 	versionText := fmt.Sprintf("v%s", GameVersion)
-	// Вычисляем позицию: правый край экрана минус длина строки минус небольшой отступ
 	g.drawString(screenWidth-len(versionText)-2, screenHeight-1, versionText, versionStyle)
-	// ==========================================================
 
-	
 	g.screen.Show()
 }
 
@@ -173,10 +163,12 @@ func (g *Game) renderQuitConfirm() {
 	boxStyle := tcell.StyleDefault.Foreground(tcell.ColorWhite).Background(tcell.ColorBlack)
 	textStyle := tcell.StyleDefault.Foreground(tcell.ColorYellow).Background(tcell.ColorBlack)
 	style := tcell.StyleDefault.Foreground(tcell.ColorRed).Background(tcell.ColorBlack)
+
 	boxWidth := 42
 	boxHeight := 7
 	boxX := (screenWidth - boxWidth) / 2
 	boxY := (screenHeight - boxHeight) / 2
+
 	repeat := func(s string, n int) string {
 		result := ""
 		for i := 0; i < n; i++ {
@@ -184,13 +176,16 @@ func (g *Game) renderQuitConfirm() {
 		}
 		return result
 	}
+
 	g.drawString(boxX, boxY, "╔"+repeat("═", boxWidth-2)+"╗", boxStyle)
 	for i := 1; i < boxHeight-1; i++ {
 		g.drawString(boxX, boxY+i, "║"+repeat(" ", boxWidth-2)+"║", boxStyle)
 	}
 	g.drawString(boxX, boxY+boxHeight-1, "╚"+repeat("═", boxWidth-2)+"╝", boxStyle)
+
 	g.drawRawString(boxX+(boxWidth-stringWidth("Вы уверены, что хотите выйти?"))/2, boxY+2, "Вы уверены, что хотите выйти?", textStyle)
-	g.drawRawString(boxX+(boxWidth-stringWidth("[Y] Да  [N] Нет"))/2, boxY+4, "[Y] Да  [N] Нет", style)
+	g.drawRawString(boxX+(boxWidth-stringWidth("[Y] Да [N] Нет"))/2, boxY+4, "[Y] Да [N] Нет", style)
+
 	g.screen.Show()
 }
 
@@ -202,10 +197,12 @@ func (g *Game) renderDeathScreen() {
 	boxStyle := tcell.StyleDefault.Foreground(tcell.ColorWhite).Background(tcell.ColorBlack)
 	titleStyle := tcell.StyleDefault.Foreground(tcell.ColorRed).Background(tcell.ColorBlack)
 	style := tcell.StyleDefault.Foreground(tcell.ColorYellow).Background(tcell.ColorBlack)
+
 	boxWidth := 50
 	boxHeight := 9
 	boxX := (screenWidth - boxWidth) / 2
 	boxY := (screenHeight - boxHeight) / 2
+
 	repeat := func(s string, n int) string {
 		result := ""
 		for i := 0; i < n; i++ {
@@ -213,6 +210,7 @@ func (g *Game) renderDeathScreen() {
 		}
 		return result
 	}
+
 	g.drawString(boxX, boxY, "╔"+repeat("═", boxWidth-2)+"╗", boxStyle)
 	for i := 1; i < boxHeight-1; i++ {
 		g.drawString(boxX, boxY+i, "║"+repeat(" ", boxWidth-2)+"║", boxStyle)
@@ -220,7 +218,6 @@ func (g *Game) renderDeathScreen() {
 	g.drawString(boxX, boxY+boxHeight-1, "╚"+repeat("═", boxWidth-2)+"╝", boxStyle)
 
 	g.drawRawString(boxX+(boxWidth-stringWidth("ВЫ ПОГИБЛИ!"))/2, boxY+2, "ВЫ ПОГИБЛИ!", titleStyle)
-
 	reason := g.deathReason
 	if reason == "" {
 		reason = "Погиб в подземелье"
@@ -232,6 +229,7 @@ func (g *Game) renderDeathScreen() {
 
 	prompt := `Вы хотите выйти "Y" или начать игру заново "N"?`
 	g.drawRawString(boxX+(boxWidth-stringWidth(prompt))/2, boxY+7, prompt, style)
+
 	g.screen.Show()
 }
 
@@ -243,41 +241,69 @@ func (g *Game) renderInventory() {
 	equipStyle := tcell.StyleDefault.Foreground(tcell.ColorYellow).Background(tcell.ColorBlack)
 	g.drawString(1, 2, "=== ИНВЕНТАРЬ === (ESC - закрыть)", style)
 	y := 4
-	g.drawString(1, y, "--- Экипировка ---", equipStyle)
+	g.drawString(6, y, "--- Экипировка ---", equipStyle)
 	y++
 	if g.player.EquippedWeapon != nil {
-		g.drawString(1, y, fmt.Sprintf("Оружие: %s (ATK +%d)", g.player.EquippedWeapon.Name, g.player.EquippedWeapon.Value), equipStyle)
+		g.drawString(6, y, fmt.Sprintf("Оружие: %s (ATK +%d)", g.player.EquippedWeapon.Name, g.player.EquippedWeapon.Value), equipStyle)
 	} else {
-		g.drawString(1, y, "Оружие: (нет)", equipStyle)
+		g.drawString(6, y, "Оружие: (нет)", equipStyle)
 	}
 	y++
 	if g.player.EquippedArmor != nil {
-		g.drawString(1, y, fmt.Sprintf("Броня:  %s (DEF +%d)", g.player.EquippedArmor.Name, g.player.EquippedArmor.Value), equipStyle)
+		g.drawString(6, y, fmt.Sprintf("Броня: %s (DEF +%d)", g.player.EquippedArmor.Name, g.player.EquippedArmor.Value), equipStyle)
 	} else {
-		g.drawString(1, y, "Броня:  (нет)", equipStyle)
+		g.drawString(6, y, "Броня: (нет)", equipStyle)
 	}
 	y += 2
-	g.drawString(1, y, "--- Предметы ---", style)
+	g.drawString(6, y, "--- Предметы ---", style)
 	y++
+	y++
+
 	if len(g.player.Inventory) == 0 {
 		g.drawString(1, y, "Инвентарь пуст", style)
 	} else {
-		for i, item := range g.player.Inventory {
-			if item == nil {
-				continue
+		col1X := 1
+		col2X := 35 // Отступ для второго столбца (можно уменьшить до 40, если экран узкий)
+
+		maxRows := 9
+		if screenHeight-5-y < maxRows {
+			maxRows = screenHeight - 5 - y
+		}
+		if maxRows < 1 {
+			maxRows = 1
+		}
+
+		for row := 0; row < maxRows; row++ {
+			// Первый столбец: индексы 0-8 (клавиши 1-9)
+			idx1 := row
+			if idx1 < len(g.player.Inventory) {
+				item := g.player.Inventory[idx1]
+				if item != nil {
+					keyHint := fmt.Sprintf("%d", idx1+1)
+					text := fmt.Sprintf("%-3s %s", keyHint, item.Name)
+					if item.Count > 1 {
+						text += fmt.Sprintf(" x%d", item.Count)
+					}
+					g.drawString(col1X, y+row, text, style)
+				}
 			}
-			text := fmt.Sprintf("%d. %s", i+1, item.Name)
-			if item.Count > 1 {
-				text += fmt.Sprintf(" x%d", item.Count)
-			}
-			g.drawString(1, y, text, style)
-			y++
-			if y >= screenHeight-5 {
-				break
+
+			// Второй столбец: индексы 9-17 (клавиши Shift+1 - Shift+9)
+			idx2 := row + 9
+			if idx2 < len(g.player.Inventory) {
+				item := g.player.Inventory[idx2]
+				if item != nil {
+					keyHint := fmt.Sprintf("Shift+%d", row+1)
+					text := fmt.Sprintf("%-8s %s", keyHint, item.Name)
+					if item.Count > 1 {
+						text += fmt.Sprintf(" x%d", item.Count)
+					}
+					g.drawString(col2X, y+row, text, style)
+				}
 			}
 		}
 	}
-	g.drawString(1, screenHeight-3, "Нажмите цифру для использования", style)
+	g.drawString(1, screenHeight-3, "Нажмите 1-9 или Shift+1-9 для использования предмета", style)
 }
 
 func (g *Game) renderStatus() {
@@ -294,6 +320,7 @@ func (g *Game) renderStatus() {
 	} else if hpPercent < 0.50 {
 		hpStyle = hpStyle.Foreground(tcell.ColorFuchsia)
 	}
+
 	hungerStatus := "Сыт"
 	hungerColor := tcell.ColorWhite
 	if g.player.Hunger > 500 && g.player.Hunger <= 900 {
@@ -303,12 +330,14 @@ func (g *Game) renderStatus() {
 		hungerStatus = "Умирает"
 		hungerColor = tcell.ColorRed
 	}
+
 	g.drawString(1, screenHeight-1, fmt.Sprintf("HP:%d/%d", g.player.HP, g.player.MaxHP), hpStyle)
 	g.drawString(12, screenHeight-1, fmt.Sprintf("Lv:%d", g.player.Level), tcell.StyleDefault.Foreground(tcell.ColorYellow))
 	g.drawString(19, screenHeight-1, fmt.Sprintf("XP:%d/%d", g.player.XP, g.player.NextLevelXP()), tcell.StyleDefault.Foreground(tcell.ColorYellow))
 	g.drawString(32, screenHeight-1, fmt.Sprintf("G:%d", g.player.Gold), tcell.StyleDefault.Foreground(tcell.ColorYellow))
 	g.drawString(40, screenHeight-1, fmt.Sprintf("A:%d D:%d", g.player.AttackVal, g.player.Defense), tcell.StyleDefault.Foreground(tcell.ColorYellow))
 	g.drawString(55, screenHeight-1, fmt.Sprintf("D:%d", g.depth), tcell.StyleDefault.Foreground(tcell.ColorYellow))
+
 	musicStatus := "♪"
 	musicColor := tcell.ColorAqua
 	if !g.musicEnabled || (g.musicCtrl != nil && g.musicCtrl.Paused) {
@@ -317,6 +346,7 @@ func (g *Game) renderStatus() {
 	}
 	g.drawString(62, screenHeight-1, fmt.Sprintf("[%s]", musicStatus), tcell.StyleDefault.Foreground(musicColor))
 	g.drawString(66, screenHeight-1, fmt.Sprintf("[%s]", hungerStatus), tcell.StyleDefault.Foreground(hungerColor))
+
 	if g.level != nil && g.level.IsStairsOverlap() && g.player.X == g.level.StairsDownX && g.player.Y == g.level.StairsDownY {
 		g.drawString(73, screenHeight-1, "[±]", tcell.StyleDefault.Foreground(tcell.ColorYellow))
 	}
@@ -328,6 +358,7 @@ func (g *Game) renderMessages() {
 	}
 	startY := screenHeight - messageHeight - 1
 	style := tcell.StyleDefault.Foreground(tcell.ColorWhite)
+
 	start := len(g.messages) - messageHeight - g.messageScroll
 	if start < 0 {
 		start = 0
@@ -336,6 +367,7 @@ func (g *Game) renderMessages() {
 	if end > len(g.messages) {
 		end = len(g.messages)
 	}
+
 	for i, msg := range g.messages[start:end] {
 		if i >= messageHeight {
 			break
@@ -369,13 +401,16 @@ func (g *Game) renderBossHealthBar() {
 	if !g.level.Tiles[boss.Y][boss.X].Visible {
 		return
 	}
+
 	offsetX := 1
 	offsetY := 0
 	barY := boss.Y - 1 + offsetY
 	barX := boss.X - 3 + offsetX
+
 	if barY < 0 || barY >= screenHeight {
 		return
 	}
+
 	barWidth := 7
 	hpPercent := float64(boss.HP) / float64(boss.MaxHP)
 	filledWidth := int(hpPercent * float64(barWidth))
@@ -385,12 +420,14 @@ func (g *Game) renderBossHealthBar() {
 	if filledWidth > barWidth {
 		filledWidth = barWidth
 	}
+
 	color := tcell.ColorGreen
 	if hpPercent < 0.25 {
 		color = tcell.ColorRed
 	} else if hpPercent < 0.50 {
 		color = tcell.ColorYellow
 	}
+
 	style := tcell.StyleDefault.Foreground(color).Background(tcell.ColorBlack)
 	for i := 0; i < barWidth; i++ {
 		x := barX + i
@@ -413,11 +450,12 @@ func (g *Game) renderHelpScreen() {
 	titleStyle := tcell.StyleDefault.Foreground(tcell.ColorYellow).Background(tcell.ColorBlack)
 	style := tcell.StyleDefault.Foreground(tcell.ColorWhite).Background(tcell.ColorBlack)
 	keyStyle := tcell.StyleDefault.Foreground(tcell.ColorAqua).Background(tcell.ColorBlack)
+
 	if g.helpPage == helpPageControls {
 		g.drawCentered(2, "=== УПРАВЛЕНИЕ ===", titleStyle)
 		lines := []struct{ key, desc string }{
 			{"WASD / Стрелки", "Движение"}, {"Q E Z C", "Диагонали"}, {"S / Пробел", "Ждать ход"},
-			{"I", "Инвентарь"}, {"1-9", "Использовать"}, {"Shift+S", "Сохранить"},
+			{"I", "Инвентарь"}, {"1-9 / Shift+1-9", "Использовать (до 18 слотов)"}, {"Shift+S", "Сохранить"},
 			{">, <", "Лестница вниз / вверх"}, {"T, P, O", "Торговля, Алтарь, Сундук"},
 			{"M, R, +/- или =/-", "Музыка, Следующий трек, Громкость"},
 			{"PgUp/PgDn или [/]", "Журнал сообщений"}, {"Home/End или 0/9", "Начало/конец журнала"},
@@ -464,7 +502,8 @@ func (g *Game) renderHelpScreen() {
 			y++
 		}
 	}
-	g.drawCentered(screenHeight-3, fmt.Sprintf("Страница %d/%d;  ←", g.helpPage+1, helpPageCount), titleStyle)
+
+	g.drawCentered(screenHeight-3, fmt.Sprintf("Страница %d/%d; ←", g.helpPage+1, helpPageCount), titleStyle)
 	g.drawCentered(screenHeight-2, "← → или A/D — перелистывание", style)
 	g.drawCentered(screenHeight-1, "Любая другая клавиша — возврат в игру", style)
 	g.screen.Show()
@@ -478,8 +517,10 @@ func (g *Game) renderPopup() {
 	boxHeight := 5
 	boxX := (screenWidth - boxWidth) / 2
 	boxY := (screenHeight - boxHeight) / 2
+
 	boxStyle := tcell.StyleDefault.Foreground(tcell.ColorYellow).Background(tcell.ColorBlack)
 	textStyle := tcell.StyleDefault.Foreground(tcell.ColorWhite).Background(tcell.ColorBlack)
+
 	repeat := func(s string, n int) string {
 		result := ""
 		for i := 0; i < n; i++ {
@@ -487,30 +528,27 @@ func (g *Game) renderPopup() {
 		}
 		return result
 	}
+
 	g.drawString(boxX, boxY, "╔"+repeat("═", boxWidth-2)+"╗", boxStyle)
 	for i := 1; i < boxHeight-1; i++ {
 		g.drawString(boxX, boxY+i, "║"+repeat(" ", boxWidth-2)+"║", boxStyle)
 	}
 	g.drawString(boxX, boxY+boxHeight-1, "╚"+repeat("═", boxWidth-2)+"╝", boxStyle)
+
 	g.drawRawString(boxX+(boxWidth-stringWidth(g.popupMessage))/2, boxY+2, g.popupMessage, textStyle)
 }
 
-// =============================================================================
-// 🆕 ЭКРАН ПОБЕДЫ (С ПРОВЕРКОЙ НА ИДЕАЛЬНУЮ ПОБЕДУ)
-// =============================================================================
 func (g *Game) renderVictoryScreen() {
 	if g.screen == nil || g.player == nil {
 		return
 	}
 	g.screen.Clear()
-
 	titleStyle := tcell.StyleDefault.Foreground(tcell.ColorYellow).Background(tcell.ColorBlack)
 	style := tcell.StyleDefault.Foreground(tcell.ColorWhite).Background(tcell.ColorBlack)
 	goldStyle := tcell.StyleDefault.Foreground(tcell.ColorYellow).Background(tcell.ColorBlack)
 	greenStyle := tcell.StyleDefault.Foreground(tcell.ColorGreen).Background(tcell.ColorBlack)
-	perfectStyle := tcell.StyleDefault.Foreground(tcell.ColorFuchsia).Background(tcell.ColorBlack) // 🆕 Для идеальной победы
+	perfectStyle := tcell.StyleDefault.Foreground(tcell.ColorFuchsia).Background(tcell.ColorBlack)
 
-	// 🆕 ПРОВЕРКА НА ИДЕАЛЬНУЮ ПОБЕДУ (Сбор всех 5 реликвий)
 	relicCount := g.player.CountRelics()
 	isPerfect := relicCount == 5
 
@@ -523,10 +561,8 @@ func (g *Game) renderVictoryScreen() {
 		g.drawCentered(6, "Вы вернулись на поверхность с Амулетом Бездны!", style)
 	}
 
-	// 🆕 Добавляем счетчик реликвий в итоговую статистику
 	statsMsg := fmt.Sprintf("Глубина: %d | Золото: %d | Уровень: %d | Реликвии: %d/5", g.depth, g.player.Gold, g.player.Level, relicCount)
 	g.drawCentered(10, statsMsg, goldStyle)
-
 	g.drawCentered(14, "Подземелье позади.", style)
 	g.drawCentered(18, "Нажмите любую клавишу для выхода", style)
 	g.screen.Show()

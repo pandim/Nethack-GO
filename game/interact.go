@@ -3,7 +3,7 @@ package game
 import (
 	"fmt"
 	"math/rand/v2"
-	
+
 	"github.com/gdamore/tcell/v2"
 )
 
@@ -52,7 +52,7 @@ func (g *Game) renderMerchantScreen() {
 		priceText := fmt.Sprintf("%d золота", item.Price)
 		g.drawString(55, y, priceText, priceStyle)
 		y++
-		if y >= screenHeight-8 { 
+		if y >= screenHeight-8 {
 			break
 		}
 	}
@@ -69,7 +69,7 @@ func (g *Game) renderMerchantScreen() {
 		g.drawString(5, y, "--- Ваши реликвии для продажи ---", style)
 		y++
 		for i, relic := range relics {
-			if i >= 5 { 
+			if i >= 5 {
 				break
 			}
 			if y >= screenHeight-4 {
@@ -142,7 +142,7 @@ func (g *Game) handleMerchantInput() {
 			r = r - 'A' + 'a'
 		}
 		if r >= 'a' && r <= 'e' {
-			relicListIndex := int(r - 'a') 
+			relicListIndex := int(r - 'a')
 			g.pendingRelicSellIndex = relicListIndex // Устанавливаем флаг ожидания
 			return
 		}
@@ -162,9 +162,28 @@ func (g *Game) buyItem(index int) {
 		return
 	}
 	g.player.Gold -= item.Price
-	g.addToInventoryWithStack(item)
+	switch item.Type {
+	case ItemTypeWeapon:
+		wasEquipped := g.player.EquippedWeapon != nil
+		g.player.EquipWeapon(item)
+		if wasEquipped {
+			g.addMessage(fmt.Sprintf("Вы купили %s за %d золота и улучшили оружие до ATK +%d", item.Name, item.Price, g.player.EquippedWeapon.Value))
+		} else {
+			g.addMessage(fmt.Sprintf("Вы купили %s за %d золота и экипировали его (ATK +%d)", item.Name, item.Price, g.player.EquippedWeapon.Value))
+		}
+	case ItemTypeArmor:
+		wasEquipped := g.player.EquippedArmor != nil
+		g.player.EquipArmor(item)
+		if wasEquipped {
+			g.addMessage(fmt.Sprintf("Вы купили %s за %d золота и улучшили броню до DEF +%d", item.Name, item.Price, g.player.EquippedArmor.Value))
+		} else {
+			g.addMessage(fmt.Sprintf("Вы купили %s за %d золота и экипировали ее (DEF +%d)", item.Name, item.Price, g.player.EquippedArmor.Value))
+		}
+	default:
+		g.addToInventoryWithStack(item)
+		g.addMessage(fmt.Sprintf("Вы купили %s за %d золота.", item.Name, item.Price))
+	}
 	g.currentMerchant.Items = append(g.currentMerchant.Items[:index], g.currentMerchant.Items[index+1:]...)
-	g.addMessage(fmt.Sprintf("Вы купили %s за %d золота.", item.Name, item.Price))
 	g.logAndSync("MERCHANT: Вы купили %s за %d золота", item.Name, item.Price)
 
 	if len(g.currentMerchant.Items) == 0 {
@@ -196,11 +215,14 @@ func (g *Game) sellRelic(relicListIndex int) {
 	}
 
 	relic := g.player.Inventory[relicInventoryIndex]
-	sellPrice := relic.Value 
+	sellPrice := relic.Value
 
 	g.player.Gold += sellPrice
-	g.player.Inventory = append(g.player.Inventory[:relicInventoryIndex], g.player.Inventory[relicInventoryIndex+1:]...)
-	
+	relic.Count--
+	if relic.Count <= 0 {
+		g.player.Inventory = append(g.player.Inventory[:relicInventoryIndex], g.player.Inventory[relicInventoryIndex+1:]...)
+	}
+
 	g.addMessage(fmt.Sprintf("Вы продали %s за %d золота.", relic.Name, sellPrice))
 	g.logAndSync("MERCHANT: Вы продали %s за %d золота", relic.Name, sellPrice)
 }
@@ -218,7 +240,7 @@ func (g *Game) showAltarUI(altar *Altar) {
 	}
 
 	// 🆕 МАСШТАБИРОВАНИЕ ЦЕНЫ АЛТАРЯ ОТ ГЛУБИНЫ
-	cost := 100 + g.depth*20 
+	cost := 100 + g.depth*20
 
 	if g.player.Gold < cost {
 		g.addMessage(fmt.Sprintf("Нужно %d золота для благословения!", cost))
@@ -295,7 +317,7 @@ func (g *Game) openChest(chest *Chest) {
 	case "golden":
 		roll := rand.IntN(100)
 		// 🆕 УВЕЛИЧЕНЫ ВЕСА: Реликвия 70%, Свиток 20%, Золото 10%
-		if roll < 75 { 
+		if roll < 75 {
 			relicData := []struct {
 				relicID   int
 				name      string
@@ -311,7 +333,7 @@ func (g *Game) openChest(chest *Chest) {
 			}
 			rd := relicData[rand.IntN(len(relicData))]
 			relic := NewRelic(0, 0, rd.relicID, rd.name, rd.sellPrice, rd.symbol, rd.color)
-			g.player.Inventory = append(g.player.Inventory, relic)
+			g.addToInventoryWithStack(relic)
 			g.addMessage(fmt.Sprintf("В золотом сундуке найдена реликвия: %s!", rd.name))
 			g.logAndSync("CHEST: Найдена реликвия %s в золотом сундуке", rd.name)
 		} else if roll < 95 {
@@ -333,7 +355,7 @@ func (g *Game) openChest(chest *Chest) {
 			g.addMessage(fmt.Sprintf("В золотом сундуке найден свиток: %s!", sd.name))
 			g.logAndSync("CHEST: Найден свиток %s в золотом сундуке", sd.name)
 		} else {
-			goldAmount := 50 + rand.IntN(51) 
+			goldAmount := 50 + rand.IntN(51)
 			g.player.Gold += goldAmount
 			g.addMessage(fmt.Sprintf("В золотом сундуке найдено %d золота!", goldAmount))
 			g.logAndSync("CHEST: Найдено %d золота в золотом сундуке", goldAmount)

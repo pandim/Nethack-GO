@@ -316,15 +316,30 @@ func (g *Game) nextLevel() {
 
 // nextSecretLevel — перепрыгивает через один уровень (глубина + 2)
 func (g *Game) nextSecretLevel() {
-	g.depth += 2
-	if lvl, ok := g.levels[g.depth]; ok {
-		g.level = lvl
-	} else {
-		g.level = NewLevel(mapWidth, mapHeight, g.depth, g.logger)
-		g.levels[g.depth] = g.level
+	if g.player == nil {
+		return
 	}
-	// Перемещаем игрока на лестницу вверх
-	if g.level.StairsUp {
+	g.depth += 2
+
+	// 🆕 Проверяем, был ли уровень уже посещён (уже в кэше)
+	_, alreadyVisited := g.levels[g.depth]
+
+	// Используем единый метод получения или создания уровня (как в nextLevel)
+	g.level = g.getOrCreateLevel(g.depth)
+
+	// 🆕 Если уровень был посещён — возрождаем монстров и объекты
+	// Это обеспечивает консистентность: повторный визит всегда обновляет уровень
+	if alreadyVisited {
+		g.respawnLevel(g.level)
+	}
+
+	// Перемещаем игрока к лестнице вверх нового уровня (логично: он спустился оттуда)
+	// 🆕 Добавлены проверки на валидность координат и проходимость клетки 
+	// (защита от спавна в стене или за пределами карты)
+	if g.level.StairsUp &&
+		g.level.StairsUpX >= 0 &&
+		g.level.StairsUpY >= 0 &&
+		g.level.CanMoveTo(g.level.StairsUpX, g.level.StairsUpY) {
 		g.player.X = g.level.StairsUpX
 		g.player.Y = g.level.StairsUpY
 	} else {
@@ -332,7 +347,12 @@ func (g *Game) nextSecretLevel() {
 		g.player.X = x
 		g.player.Y = y
 	}
-	g.saveGame()
+
+	g.logAndSync("LEVEL_SECRET: Переход на уровень %d (секретный). Игрок на (%d, %d)",
+		g.depth, g.player.X, g.player.Y)
+	g.addMessage(fmt.Sprintf("Вы спустились на уровень %d через секретный проход.", g.depth))
+	
+	g.saveGame() // автосохранение при переходе между уровнями
 }
 
 // prevLevel — подъём на предыдущий уровень (клавиша <)

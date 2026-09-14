@@ -1,6 +1,6 @@
 module nethackgo
 
-go 1.26.4
+go 1.27.1
 
 require (
 	github.com/faiface/beep v1.1.0

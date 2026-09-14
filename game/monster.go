@@ -307,7 +307,7 @@ func (m *Monster) AIUpdate(playerX, playerY int, level *Level, aggressive bool) 
 			m.X = newX
 			m.Y = newY
 			if m.logger != nil {
-				m.logger.Printf("AI_MOVE: %s двигается на (%d, %d)", m.Name, newX, newY)
+			//	m.logger.Printf("AI_MOVE: %s двигается на (%d, %d)", m.Name, newX, newY)
 			}
 			return // Успешно переместились, завершаем ход
 		}

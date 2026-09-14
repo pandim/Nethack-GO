@@ -144,6 +144,20 @@ func (l *Level) Render(screen tcell.Screen, offsetX, offsetY int) {
 			}
 		}
 	}
+	// Отрисовка ловушек, после отладки - надо убрать
+	// В конце функции (l *Level) Render, перед отрисовкой монстров:
+	for _, trap := range l.Traps {
+    if trap == nil || trap.Triggered {
+        continue
+    }
+    if trap.Y >= 0 && trap.Y < l.Height && trap.X >= 0 && trap.X < l.Width {
+        if l.Tiles[trap.Y][trap.X].Visible {
+            // Символ '^', цвет зависит от типа или единый тёмно-красный/коричневый
+            trapStyle := tcell.StyleDefault.Foreground(tcell.ColorBrown).Background(tcell.ColorBlack)
+            screen.SetContent(trap.X+offsetX, trap.Y+offsetY, '^', nil, trapStyle)
+        }
+    }
+}
 
 	// Отрисовка монстров (только на видимых клетках)
 	for _, monster := range l.Monsters {

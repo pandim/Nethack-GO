@@ -98,7 +98,7 @@ func (g *Game) processTurn(dx, dy int) {
 				return
 			}
 		} else if g.level.CanMoveTo(newX, newY) {
-			g.logAndSync("MOVE: Игрок идет на (%d, %d)", newX, newY)
+			//g.logAndSync("MOVE: Игрок идет на (%d, %d)", newX, newY)
 			g.player.Move(dx, dy)
 			if g.checkPlayerDeath() {
 				return

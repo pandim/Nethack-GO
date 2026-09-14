@@ -177,7 +177,7 @@ func (g *Game) buyItem(index int) {
 		if wasEquipped {
 			g.addMessage(fmt.Sprintf("Вы купили %s за %d золота и улучшили броню до DEF +%d", item.Name, item.Price, g.player.EquippedArmor.Value))
 		} else {
-			g.addMessage(fmt.Sprintf("Вы купили %s за %d золота и экипировали ее (DEF +%d)", item.Name, item.Price, g.player.EquippedArmor.Value))
+			g.addMessage(fmt.Sprintf("Вы купили %s за %d золота и экипировали его (DEF +%d)", item.Name, item.Price, g.player.EquippedArmor.Value))
 		}
 	default:
 		g.addToInventoryWithStack(item)

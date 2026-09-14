@@ -376,7 +376,18 @@ func (g *Game) renderMessages() {
 	}
 }
 
-func (g *Game) addMessage(msg string) {
+func (g *Game) addMessage(msg string, allowDuplicate ...bool) {
+	// По умолчанию дубликаты РАЗРЕШЕНЫ (allowDup = true)
+	allowDup := true
+	if len(allowDuplicate) > 0 {
+		allowDup = allowDuplicate[0]
+	}
+
+	// Если дубликаты ЗАБЛОКИРОВАНЫ (!allowDup) и последнее сообщение совпадает с новым — игнорируем
+	if !allowDup && len(g.messages) > 0 && g.messages[len(g.messages)-1] == msg {
+		return
+	}
+
 	g.messages = append(g.messages, msg)
 	if len(g.messages) > maxMessages {
 		g.messages = g.messages[len(g.messages)-maxMessages:]
@@ -503,7 +514,7 @@ func (g *Game) renderHelpScreen() {
 		}
 	}
 
-	g.drawCentered(screenHeight-3, fmt.Sprintf("Страница %d/%d; ←", g.helpPage+1, helpPageCount), titleStyle)
+	g.drawCentered(screenHeight-3, fmt.Sprintf("Страница %d/%d", g.helpPage+1, helpPageCount), titleStyle)
 	g.drawCentered(screenHeight-2, "← → или A/D — перелистывание", style)
 	g.drawCentered(screenHeight-1, "Любая другая клавиша — возврат в игру", style)
 	g.screen.Show()

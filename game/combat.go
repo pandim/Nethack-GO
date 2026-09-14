@@ -173,7 +173,7 @@ func (g *Game) processTurn(dx, dy int) {
 				g.pickupItem(item)
 			}
 		} else {
-			g.addMessage("Туда нельзя пройти!")
+			g.addMessage("Туда нельзя пройти!", false)
 			return
 		}
 	}
@@ -319,7 +319,7 @@ func (g *Game) pickupItem(item *Item) {
 		if wasEquipped {
 			g.addMessage(fmt.Sprintf("Вы подобрали %s и улучшили броню до DEF +%d", item.Name, g.player.EquippedArmor.Value))
 		} else {
-			g.addMessage(fmt.Sprintf("Вы подобрали %s и экипировали ее (DEF +%d)", item.Name, g.player.EquippedArmor.Value))
+			g.addMessage(fmt.Sprintf("Вы подобрали %s и экипировали его (DEF +%d)", item.Name, g.player.EquippedArmor.Value))
 		}
 		return
 	}

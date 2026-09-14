@@ -47,7 +47,7 @@ func (p *Player) Move(dx, dy int) {
 	p.Y += dy
 	p.Hunger += 1 // Расход сытости 1 за ход - потом увеличить
 	if p.logger != nil {
-		p.logger.Printf("MOVE: Игрок переместился на (%d, %d). Голод: %d", p.X, p.Y, p.Hunger)
+	//	p.logger.Printf("MOVE: Игрок переместился на (%d, %d). Голод: %d", p.X, p.Y, p.Hunger)
 	}
 	if p.Hunger > 1000 {
 		p.HP -= 1

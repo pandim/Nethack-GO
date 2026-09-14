@@ -1,7 +1,7 @@
+.gitignore
+.vscode/
 nethackgo.exe
 savegame.json
 nethack.log
-github url
 trep/
-.vscode/
 chat/
